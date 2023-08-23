@@ -30,6 +30,9 @@ TEST_CASE( "file-based testing" ) {
                 for (const auto& e : E) {
                     REQUIRE(std::find(v.begin(), v.end(), e) != v.end());
                 }
+                for (const auto& c : v) {
+                    REQUIRE(std::find(E.begin(), E.end(), c) != E.end());
+                }
             }
         }
     }

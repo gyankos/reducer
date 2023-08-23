@@ -2,69 +2,48 @@
 // Created by giacomo on 22/08/23.
 //
 
+#define DEBUG
 #include "model_reducer.h"
 #include "yaucl/graphs/FlexibleFA.h"
 
 
-#define BINARY_PRESENCE     (0b01)
-#define BINARY_ABSENCE    (0b10)
-#define BINARY_EXCL     (0b11)
 
-// SR1
-#define EXCLUDE_FROM_EXISTANCE(cf) do { auto it2 = Future.emplace(cf, BINARY_ABSENCE);\
-if ((!it2.second) && ((it2.first->second & BINARY_ABSENCE) != BINARY_ABSENCE)) {\
-return {};  /* Inconsistent model, as both clauses coexist */\
-}} while(0)
-#define EXCLUDE_FROM_EXISTANCE2(cf) do { auto it2 = Future.emplace(cf, BINARY_ABSENCE);\
-if ((!it2.second) && ((it2.first->second & BINARY_ABSENCE) != BINARY_ABSENCE)) {\
-return false;  /* Inconsistent model, as both clauses coexist */\
-}} while(0)
+//// SR1
+//#define EXCLUDE_FROM_EXISTANCE(cf) do { auto it2 = Future.emplace(cf, BINARY_ABSENCE);\
+//if ((!it2.second) && ((it2.first->second & BINARY_ABSENCE) != BINARY_ABSENCE)) {\
+//return {};  /* Inconsistent model, as both clauses coexist */\
+//}} while(0)
+//#define EXCLUDE_FROM_EXISTANCE2(cf) do { auto it2 = Future.emplace(cf, BINARY_ABSENCE);\
+//if ((!it2.second) && ((it2.first->second & BINARY_ABSENCE) != BINARY_ABSENCE)) {\
+//return false;  /* Inconsistent model, as both clauses coexist */\
+//}} while(0)
 
-template <typename T>
-static inline void exclude_from_map(std::unordered_map<std::string, T>& map, const std::string& elem) {
-    auto it = map.find(elem);
-    if (it != map.end()) {
-        map.erase(it);
-    }
-}
 
-static inline bool exclude_from_precedence_map(std::unordered_map<std::string, std::unordered_set<std::string>>& map,
-                                               const std::string& elem,
-                                               std::unordered_map<std::string, char>& Future) {
-    auto it = map.find(elem);
-    if (it != map.end()) {
-        for (const auto& b : it->second) {
-            auto it2 = Future.emplace(b, BINARY_ABSENCE);
-            if ((!it2.second) && ((it2.first->second & BINARY_ABSENCE) != BINARY_ABSENCE))
-                return true;
-        }
-        map.erase(it);
-    }
-    return false;
-}
 
-#define EXCLUDE_FROM_ALL_MAPS(cf)  do { exclude_from_map(MNext, cf);\
-exclude_from_map(Malt_response, cf);\
-exclude_from_map(Mneg_chainsuccession, cf);                          \
-exclude_from_map(MNext, cf);                          \
-exclude_from_map(MFuture, cf);                          \
-if (exclude_from_precedence_map(Mprecedence, cf, Future)) return {}; \
-} while(0)
 
-#define EXCLUDE_FROM_ALL_MAPS2(cf)  do { exclude_from_map(MNext, cf);\
-exclude_from_map(Malt_response, cf);\
-exclude_from_map(Mneg_chainsuccession, cf);                          \
-exclude_from_map(MNext, cf);                          \
-exclude_from_map(MFuture, cf);                                       \
-if (exclude_from_precedence_map(Mprecedence, cf, Future)) return false; \
-} while(0)
 
-#define EXCLUDE_FROM_NOTMALT_MAPS(cf)  do { exclude_from_map(MNext, cf); \
-exclude_from_map(Mneg_chainsuccession, cf);                          \
-exclude_from_map(MNext, cf);                          \
-exclude_from_map(MFuture, cf);                          \
-if (exclude_from_precedence_map(Mprecedence, cf, Future)) return {}; \
-} while(0)
+//#define EXCLUDE_FROM_ALL_MAPS(cf)  do { exclude_from_map(MNext, cf);\
+//exclude_from_map(Malt_response, cf);\
+//exclude_from_map(Mneg_chainsuccession, cf);                          \
+//exclude_from_map(MNext, cf);                          \
+//exclude_from_map(MFuture, cf);                          \
+//if (exclude_from_precedence_map(Mprecedence, cf, Future)) return {}; \
+//} while(0)
+//
+//#define EXCLUDE_FROM_ALL_MAPS2(cf)  do { exclude_from_map(MNext, cf);\
+//exclude_from_map(Malt_response, cf);\
+//exclude_from_map(Mneg_chainsuccession, cf);                          \
+//exclude_from_map(MNext, cf);                          \
+//exclude_from_map(MFuture, cf);                                       \
+//if (exclude_from_precedence_map(Mprecedence, cf, Future)) return false; \
+//} while(0)
+
+//#define EXCLUDE_FROM_NOTMALT_MAPS(cf)  do { exclude_from_map(MNext, cf); \
+//exclude_from_map(Mneg_chainsuccession, cf);                          \
+//exclude_from_map(MNext, cf);                          \
+//exclude_from_map(MFuture, cf);                          \
+//if (exclude_from_precedence_map(Mprecedence, cf, Future)) return {}; \
+//} while(0)
 
 
 static inline bool test_future_condition(const std::unordered_map<std::string, char>& Future, const std::string& label, char condition) {
@@ -100,13 +79,13 @@ bool dfsFirstLoopVisit(roaring::Roaring64Map& visited,
     return false;
 }
 
-bool model_reducer::reduce_map_to_be_considered(std::unordered_map<std::string, std::unordered_set<std::string>>& map_to_be_considered) {
+bool model_reducer::reduce_map_to_be_considered(map_inout<std::string, std::string>& map_to_be_considered, bool alsoPassedMap) {
     FlexibleFA<std::string, char> crg;
     std::unordered_map<std::string, size_t> node_map;
     for (const auto& [a, targets] : map_to_be_considered) {
         // If the activation shall never happen, the clause is never triggered for checking
         if (test_future_condition(Future, a, BINARY_ABSENCE)) continue;
-        DEBUG_ASSERT(targets.size() == 1);
+//        DEBUG_ASSERT(targets.size() == 1);
         for (const auto& b : targets) {
             auto itSrc = node_map.find(a);
             if (itSrc == node_map.end()) {
@@ -136,8 +115,10 @@ bool model_reducer::reduce_map_to_be_considered(std::unordered_map<std::string, 
                                       array, loop)) {
                     for (size_t nodeId : loop) {
                         const auto& label = crg.getNodeLabel(nodeId);
-                        EXCLUDE_FROM_EXISTANCE2(label);
-                        EXCLUDE_FROM_ALL_MAPS2(label);
+                        if (!exclude_from_existance(label)) return false;
+                        if (alsoPassedMap)
+                            exclude_from_map(map_to_be_considered, label);
+                        if (!exclude_from_all_maps(label)) return false;
                     }
                     for (size_t nodeId : loop) {
                         crg.removeNode(nodeId);
@@ -151,7 +132,7 @@ bool model_reducer::reduce_map_to_be_considered(std::unordered_map<std::string, 
     return true;
 }
 
-static inline void result_fill(std::unordered_map<std::string, std::unordered_set<std::string>>& map_to_consider,
+static inline void result_fill(map_inout<std::string, std::string>& map_to_consider,
                                declare_cases caso,
                                std::vector<DatalessCases>& result) {
     for (const auto& [a, bSet]: map_to_consider) {
@@ -162,22 +143,41 @@ static inline void result_fill(std::unordered_map<std::string, std::unordered_se
 }
 
 
-bool model_reducer::reduce_cr(std::unordered_map<std::string, std::unordered_set<std::string>>& MN,
+bool model_reducer::reduce_cr(map_inout<std::string, std::string>& MN,
                                                     const std::string& label) {
     std::unordered_set<std::string> visited;
-    std::queue<std::string> toRemove;
+    std::unordered_set<std::string> toRemove;
     toRemove.emplace(label);
     while (!toRemove.empty()) {
-        auto top = toRemove.front();
-        toRemove.pop();
+        auto it3 = toRemove.begin();
+        auto top = *it3;
+        toRemove.erase(it3);
         if (visited.emplace(top).second) {
-            EXCLUDE_FROM_EXISTANCE2(top);
-            EXCLUDE_FROM_ALL_MAPS2(top);
-            for (auto & it2 : MN) {
-                if (it2.second.contains(top)) {
-                    toRemove.emplace(it2.first);
-                }
-            }
+            if (!exclude_from_existance(top)) return false;
+            if (!exclude_from_all_maps(top)) return false;
+            auto it = MN.find_in(top);
+            if (it != MN.end_in())
+                toRemove.insert(it->second.begin(), it->second.end());
+        }
+    }
+    return true;
+}
+
+bool model_reducer::reduce_r(const std::string& label) {
+    std::unordered_set<std::string> visited;
+    std::unordered_set<std::string> toRemove;
+    toRemove.emplace(label);
+    std::pair<is_negated, std::string> is_neg{false, ""};
+    while (!toRemove.empty()) {
+        auto it3 = toRemove.begin();
+        is_neg.second = *it3;
+        toRemove.erase(it3);
+        if (visited.emplace(is_neg.second).second) {
+            if (!exclude_from_existance(is_neg.second)) return false;
+            if (!exclude_from_all_maps(is_neg.second)) return false;
+            auto it = MFuture.find_in(is_neg);
+            if (it != MFuture.end_in())
+                toRemove.insert(it->second.begin(), it->second.end());
         }
     }
     return true;
@@ -198,7 +198,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             }
                 break;
             case Absence: {
-                EXCLUDE_FROM_EXISTANCE(clause.left);
+                if (!exclude_from_existance(clause.left)) return {};
             }
                 break;
             case Choice:
@@ -227,7 +227,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 response.emplace_back(clause.left, clause.right);
                 break;
             case Precedence:
-                Mprecedence[clause.left].emplace(clause.right);
+                Mprecedence.add(clause.left, clause.right);
                 break;
             case ChainResponse:
                 chain_response.emplace_back(clause.left, clause.right);
@@ -241,25 +241,25 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 break;
             case Succession:
                 response.emplace_back(clause.left, clause.right);
-                Mprecedence[clause.left].emplace(clause.right);
+                Mprecedence.add(clause.left, clause.right);
                 break;
             case AltPrecedence:
-                Mprecedence[clause.left].emplace(clause.right);
-                Malt_precedence[clause.right].emplace(clause.left);
+                Mprecedence.add(clause.left, clause.right);
+                Malt_precedence.add(clause.right, clause.left);
                 break;
             case AltSuccession:
-                Mprecedence[clause.left].emplace(clause.right);
-                Malt_precedence[clause.right].emplace(clause.left);
-                Malt_response[clause.left].emplace(clause.right);
+                Mprecedence.add(clause.left, clause.right);
+                Malt_precedence.add(clause.right, clause.left);
+                Malt_response.add(clause.left, clause.right);
                 break;
             case AltResponse:
-                Malt_response[clause.left].emplace(clause.right);
+                Malt_response.add(clause.left, clause.right);
                 break;
             case NegSuccession:
                 neg_succession.emplace_back(clause.left, clause.right);
                 break;
             case NegChainSuccession:
-                Mneg_chainsuccession[clause.left].emplace(clause.right);
+                Mneg_chainsuccession.add(clause.left, clause.right);
                 break;
             case NotCoexistence:
                 if (clause.left < clause.right)
@@ -289,8 +289,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 return {};
         }
         if (clause.first == clause.second) {
-            auto it = Malt_response.find(clause.first);
-            if (it != Malt_response.end()) {
+            auto it = Malt_response.find_out(clause.first);
+            if (it != Malt_response.end_out()) {
                 if (reduce_cr(MNext, clause.first))
                     continue;
                 else
@@ -298,8 +298,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             }
         }
         {
-            auto it = Mneg_chainsuccession.find(clause.first);
-            if (it != Mneg_chainsuccession.end()) {
+            auto it = Mneg_chainsuccession.find_out(clause.first);
+            if (it != Mneg_chainsuccession.end_out()) {
                 if (it->second.contains(clause.second)) {
                     if (reduce_cr(MNext, clause.first))
                         continue;
@@ -308,8 +308,9 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 }
             }
         }
-        auto& mnextA = MNext[clause.first];
-        mnextA.emplace(clause.second);
+        auto& mnextA = MNext.add(clause.first, clause.second);
+//        auto& mnextA = MNext[clause.first];
+//        mnextA.emplace(clause.second);
         if (mnextA.size() > 1) {
             if (reduce_cr(MNext, clause.first))
                 continue;
@@ -321,14 +322,34 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
 
     // Detecting G(a -> F(b))
     for (const auto& clause : response) {
-        if (test_future_condition(Future, clause.first, BINARY_ABSENCE)) continue;
-        if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
-            EXCLUDE_FROM_EXISTANCE(clause.first);
-            EXCLUDE_FROM_ALL_MAPS(clause.first);
+        if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
             continue;
+        {
+            // G(a->X(b)) is stronger than G(a -> F(b)), so we can avoid the latter
+            auto it = MNext.find_out(clause.first);
+            if (it != MNext.end_out()) {
+                if (it->second.contains(clause.second)) {
+                    continue;
+                }
+            }
         }
-        auto& mfutureA = MFuture[clause.first];
-        mfutureA.emplace(false, clause.second);
+        if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
+            if (reduce_r(clause.first))
+                continue;
+            else
+                return {};
+        }
+        MFuture.add(clause.first, {false, clause.second});
+//        auto& mfutureA = MFuture[clause.first];
+//        mfutureA.emplace(false, clause.second);
+    }
+    for (const auto& [k, char_]: Future) {
+        if (char_ & BINARY_ABSENCE) {
+            if (reduce_cr(MNext, k))
+                continue;
+            else
+                return {};
+        }
     }
     response.clear();
 
@@ -337,35 +358,38 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     for (const auto& clause : neg_succession) {
         if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
             continue;
-        auto& mfutureA = MFuture[clause.first];
+        auto mfutureA = MFuture.find_out(clause.first);
         is_positive.second = clause.second;
-        if (mfutureA.contains(is_positive)) {
-            EXCLUDE_FROM_EXISTANCE(clause.first);
-            EXCLUDE_FROM_ALL_MAPS(clause.first);
+        if (mfutureA != MFuture.end_out() && (mfutureA->second.contains(is_positive))) {
+            if (!exclude_from_existance(clause.first)) return {};
+            if (!exclude_from_all_maps(clause.first)) return {};
             continue;
         }
         {
-            auto it = MNext.find(clause.first);
-            if (it != MNext.end()) {
+            auto it = MNext.find_out(clause.first);
+            if (it != MNext.end_out()) {
                 if (it->second.contains(clause.second)) {
-                    EXCLUDE_FROM_EXISTANCE(clause.first);
-                    EXCLUDE_FROM_ALL_MAPS(clause.first);
+                    if (!exclude_from_existance(clause.first)) return {};
+                    if (!exclude_from_all_maps(clause.first)) return {};
                     continue;
                 }
             }
         }
-        mfutureA.emplace(true, clause.second);
+        if (mfutureA == MFuture.end_out())
+            MFuture.add(clause.first, {true, clause.second});
+        else
+            mfutureA->second.emplace(true, clause.second);
     }
     neg_succession.clear();
 
     // Declare AltResponse G(a -> X(!a U b))
     std::pair<is_negated, std::string> is_neg{true, ""};
-    for (auto it3 = Malt_response.begin(); it3 != Malt_response.end(); ) {
+    for (auto it3 = Malt_response.begin_out(); it3 != Malt_response.end_out(); ) {
         if (test_future_condition(Future, it3->first, BINARY_ABSENCE)) continue;
         bool badMalt = false;
         for (auto it4 = it3->second.begin(); it4 != it3->second.end(); ) {
-            auto it = MNext.find(it3->first);
-            if (it != MNext.end()) {
+            auto it = MNext.find_out(it3->first);
+            if (it != MNext.end_out()) {
                 if (it->second.contains(*it4)) {
                     it4 = it3->second.erase(it4);
                     continue;
@@ -374,22 +398,22 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
 
             bool hasMFutureANotB = false;
             {
-                auto it2 = MFuture.find(it3->first);
-                if (it2 != MFuture.end()) {
+                auto it2 = MFuture.find_out(it3->first);
+                if (it2 != MFuture.end_out()) {
                     is_neg.second = *it4;
                     hasMFutureANotB = it2->second.contains(is_neg);
                 }
             }
             if (hasMFutureANotB || (test_future_condition(Future, *it4, BINARY_ABSENCE))) {
-                EXCLUDE_FROM_EXISTANCE(it3->first);
-                EXCLUDE_FROM_NOTMALT_MAPS(it3->first);
+                if (!exclude_from_existance(it3->first)) return {};
+                if (!exclude_from_all_maps(it3->first, false)) return {};
                 badMalt = true;
-                it3 = Malt_response.erase(it3);
+                it3 = Malt_response.erase_out(it3);
                 break; // Skipping all the it4s
             }
 
-            auto it2 = MFuture.find(it3->first);
-            if (it2 != MFuture.end()) {
+            auto it2 = MFuture.find_out(it3->first);
+            if (it2 != MFuture.end_out()) {
                 is_positive.second = *it4;
                 it2->second.erase(is_positive);
             }
@@ -401,12 +425,12 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     // Not erasing: already in map!
 
     // If AltPrecedence has some rewritings that can be ignored, we just preserve the precedence part
-    for (auto it = Malt_precedence.begin(); it != Malt_precedence.end(); it++) {
+    for (auto it = Malt_precedence.begin_out(); it != Malt_precedence.end_out(); it++) {
         if (test_future_condition(Future, it->first, BINARY_ABSENCE)) continue;
         for (auto it2 = it->second.begin(); it2 != it->second.end(); ) {
             {
-                auto it3 = MNext.find(it->first);
-                if (it3 != MNext.end()) {
+                auto it3 = MNext.find_out(it->first);
+                if (it3 != MNext.end_out()) {
                     if (it3->second.contains(*it2)) {
                         it2 = it->second.erase(it2);
                         continue;
@@ -414,8 +438,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 }
             }
             {
-                auto it3 = MFuture.find(it->first);
-                if (it3 != MFuture.end()) {
+                auto it3 = MFuture.find_out(it->first);
+                if (it3 != MFuture.end_out()) {
                     is_neg.second = *it2;
                     if (it3->second.contains(is_neg)) {
                         it2 = it->second.erase(it2);
@@ -430,27 +454,27 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     // TODO: Precedence, ChainResponse, Response --> Absences
     if (!reduce_map_to_be_considered(Mprecedence)) return {};
     {
-        std::unordered_map<std::string, std::unordered_set<std::string>> intermediate;
-        for (auto it2 = MFuture.begin(); it2 != MFuture.end(); ) {
+        map_inout<std::string, std::string> intermediate;
+        for (auto it2 = MFuture.begin_out(); it2 != MFuture.end_out(); ) {
             const auto& k = it2->first;
             auto& vals = it2->second;
             for (auto it = vals.begin(); it != vals.end(); ) {
                 if (it->first)
                     it++;
                 else {
-                    intermediate[k].emplace(it->second);
+                    intermediate.add(k, it->second);
                     it = vals.erase(it);
                 }
             }
             if (vals.empty())
-                it2 = MFuture.erase(it2);
+                it2 = MFuture.erase_out(it2);
             else
                 it2++;
         }
-        if (!reduce_map_to_be_considered(intermediate)) return {};
+        if (!reduce_map_to_be_considered(intermediate, true)) return {};
         for (const auto& [k, vals] : intermediate) {
             for (const auto& b : vals)
-                MFuture[k].emplace(false, b);
+                MFuture.add(k, {false, b});
         }
     }
     if (!reduce_map_to_be_considered(MNext)) return {};
@@ -475,8 +499,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         // Otherwise, if it is not prescribed to be activated, then I shall declare the
         // clause to be []!a
         if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
-            EXCLUDE_FROM_EXISTANCE(clause.first);
-            EXCLUDE_FROM_ALL_MAPS(clause.first);
+            if (!exclude_from_existance(clause.first)) return {};
+            if (!exclude_from_all_maps(clause.first)) return {};
             continue;
         }
         result.emplace_back(RespExistence, clause.first, clause.second);
@@ -508,7 +532,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     choice.clear();
     DEBUG_ASSERT(choice.empty());
     // neg_succession --> MFuture
-    DEBUG_ASSERT(resp_existence.clear());
+    DEBUG_ASSERT(resp_existence.empty());
     for (const auto& clause : chain_precedence) {
         result.emplace_back(ChainPrecedence, clause.first, clause.second);
     }
@@ -535,8 +559,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             }
         } else {
             for (const auto& a : aSet) {
-                auto it = Mprecedence.find(a);
-                if (it != Mprecedence.end()) {
+                auto it = Mprecedence.find_out(a);
+                if (it != Mprecedence.end_out()) {
                     if (it->second.contains(b)) {
                         result.emplace_back(AltPrecedence, a, b);
                     } else {
