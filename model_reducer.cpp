@@ -283,22 +283,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
             continue;
         if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
-//            std::unordered_set<std::string> visited;
-//            std::queue<std::string> toRemove;
-//            toRemove.emplace(clause.first);
-//            while (!toRemove.empty()) {
-//                auto top = toRemove.front();
-//                toRemove.pop();
-//                if (visited.emplace(top).second) {
-//                    EXCLUDE_FROM_EXISTANCE(top);
-//                    EXCLUDE_FROM_ALL_MAPS(top);
-//                    for (auto it2 = MNext.begin(); it2 != MNext.end(); it2++) {
-//                        if (it2->second.contains(top)) {
-//                            toRemove.emplace(it2->first);
-//                        }
-//                    }
-//                }
-//            }
             if (reduce_cr(MNext, clause.first))
                 continue;
             else
@@ -311,23 +295,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                     continue;
                 else
                     return {};
-//                std::unordered_set<std::string> visited;
-//                std::queue<std::string> toRemove;
-//                toRemove.emplace(clause.first);
-//                while (!toRemove.empty()) {
-//                    auto top = toRemove.front();
-//                    toRemove.pop();
-//                    if (visited.emplace(top).second) {
-//                        EXCLUDE_FROM_EXISTANCE(top);
-//                        EXCLUDE_FROM_ALL_MAPS(top);
-//                        for (auto it2 = MNext.begin(); it2 != MNext.end(); it2++) {
-//                            if (it2->second.contains(top)) {
-//                                toRemove.emplace(it2->first);
-//                            }
-//                        }
-//                    }
-//                }
-//                continue;
             }
         }
         {
@@ -338,23 +305,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                         continue;
                     else
                         return {};
-//                    std::unordered_set<std::string> visited;
-//                    std::queue<std::string> toRemove;
-//                    toRemove.emplace(clause.first);
-//                    while (!toRemove.empty()) {
-//                        auto top = toRemove.front();
-//                        toRemove.pop();
-//                        if (visited.emplace(top).second) {
-//                            EXCLUDE_FROM_EXISTANCE(top);
-//                            EXCLUDE_FROM_ALL_MAPS(top);
-//                            for (auto it2 = MNext.begin(); it2 != MNext.end(); it2++) {
-//                                if (it2->second.contains(top)) {
-//                                    toRemove.emplace(it2->first);
-//                                }
-//                            }
-//                        }
-//                    }
-//                    continue;
                 }
             }
         }
@@ -365,23 +315,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 continue;
             else
                 return {};
-//            std::unordered_set<std::string> visited;
-//            std::queue<std::string> toRemove;
-//            toRemove.emplace(clause.first);
-//            while (!toRemove.empty()) {
-//                auto top = toRemove.front();
-//                toRemove.pop();
-//                if (visited.emplace(top).second) {
-//                    EXCLUDE_FROM_EXISTANCE(top);
-//                    EXCLUDE_FROM_ALL_MAPS(top);
-//                    for (auto it2 = MNext.begin(); it2 != MNext.end(); it2++) {
-//                        if (it2->second.contains(top)) {
-//                            toRemove.emplace(it2->first);
-//                        }
-//                    }
-//                }
-//            }
-//            continue;
         }
     }
     chain_response.clear();

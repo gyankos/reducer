@@ -9,11 +9,11 @@ TEST_CASE( "file-based testing" ) {
     for (const auto& dirEntry : std::filesystem::recursive_directory_iterator(path)){
         if (dirEntry.is_directory()) {
             SECTION(dirEntry.path().filename().string()) {
+                std::cout << dirEntry.path().filename().string() << std::endl;
                 auto expected = dirEntry.path() / "expected.txt";
                 auto model = dirEntry.path() / "model.txt";
                 std::ifstream file{model};
                 auto M = streamDeclare(file);
-
                 for (const auto& clause : M)
                     std::cout << clause << std::endl;
                 std::cout << std::endl << "~~~~~~~~~~~~~~~~~~~~~~" << std::endl << std::endl;
@@ -22,9 +22,11 @@ TEST_CASE( "file-based testing" ) {
                 for (const auto& clause : v)
                     std::cout << clause << std::endl;
                 std::cout << std::endl << "~~~~~~~~~~~~~~~~~~~~~~" << std::endl << std::endl;
-
                 std::ifstream expected_file{expected};
-                auto E = streamDeclare(expected_file);
+                std::vector<DatalessCases> E;
+                if (exists(expected)) {
+                    E = streamDeclare(expected_file);
+                }
                 for (const auto& e : E) {
                     REQUIRE(std::find(v.begin(), v.end(), e) != v.end());
                 }
