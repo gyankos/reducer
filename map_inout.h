@@ -17,9 +17,10 @@ template <typename T, typename V> struct map_inout {
 
     inline std::unordered_set<V>& add(std::unordered_map<T, std::unordered_set<V>>::iterator& it, const T& left, const V& right) {
         if (it == end_out()) {
-            add(left, right);
+            return add(left, right);
         } else {
             it->second.emplace(right);
+            return it->second;
         }
     }
 

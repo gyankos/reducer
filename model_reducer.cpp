@@ -687,7 +687,15 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         }
 
         // I can start directly populate the model, at this stage
-        result.emplace_back(NotCoexistence, clause.first, clause.second);
+        if (Mchoice.erase(clause.first, clause.second) ||
+            Mchoice.erase(clause.second, clause.first)) {
+            result.emplace_back(ExclChoice,
+                                std::min(clause.first, clause.second),
+                                std::max(clause.second, clause.first));
+        } else
+            result.emplace_back(NotCoexistence,
+                                std::min(clause.first, clause.second),
+                                std::max(clause.second, clause.first));
     }
     not_coexistence.clear();
 
@@ -759,8 +767,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 result.emplace_back(NegSuccession, a, b);
             } else {
                 // Returning G(A -> F(b)) iff. G(A -> X(b)) is not in the model
-                auto it = MNext.find_out(a);
-                if ((it == MNext.end_out()) || (!it->second.contains(b))) {
+                if (!MNext.contains(a, b)) {
                     // If there is also a Precedence, then return a Succession
                     if (Mprecedence.erase(a,b)) {
                         result.emplace_back(Succession, a, b);
@@ -773,11 +780,15 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     }
     MFuture.clear();
 
-    // f. ChainResponse(A,B), adding the remaining ones, which are not ChainSuccessions
+    // f. Precedence
+    result_fill(Mprecedence, Precedence, result);
+    DEBUG_ASSERT(Mprecedence.empty());
+
+    // g. ChainResponse(A,B), adding the remaining ones, which are not ChainSuccessions
     result_fill(MNext, ChainResponse, result);
     DEBUG_ASSERT(MNext.empty());
 
-    // g. Existence(A) and Absence(A)
+    // h. Existence(A) and Absence(A)
     for (const auto& [act, char_] : Future) {
         if ((char_ & BINARY_PRESENCE))
             result.emplace_back(Existence, act, "");
@@ -786,15 +797,25 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     }
     Future.clear();
 
-    // h. NegChainSuccession
+    // i. NegChainSuccession
     result_fill(Mneg_chainsuccession, NegChainSuccession, result);
     DEBUG_ASSERT(Mneg_chainsuccession.empty());
 
-    // i. RespExistence
-    result_fill(Mresp_existence, RespExistence, result);
+    // j. RespExistence
+    for (const auto& [a, bSet]: Mresp_existence) {
+        for (const auto& b : bSet) {
+            if (Mresp_existence.contains(b,a)) {
+                if (a<b)
+                    result.emplace_back(CoExistence, a, b);
+            } else {
+                result.emplace_back(RespExistence, a, b);
+            }
+        }
+    }
+    Mresp_existence.clear();
     DEBUG_ASSERT(Mresp_existence.empty());
 
-    // j. Choice
+    // k. Choice
     for (const auto& [a, apSet] : Mchoice) {
         for (const auto& ap : apSet) {
             if (a<ap)
