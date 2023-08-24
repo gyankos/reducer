@@ -79,6 +79,7 @@ struct model_reducer {
         exclude_from_map(Mneg_chainsuccession, cf);
         exclude_from_map(MNext, cf);
         exclude_from_map(MFuture, cf);
+        exclude_from_map(Mresp_existence, cf);
         return (!exclude_from_precedence_map(Mprecedence, cf, Future));
     }
 

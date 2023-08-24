@@ -6,46 +6,6 @@
 #include "model_reducer.h"
 #include "yaucl/graphs/FlexibleFA.h"
 
-
-
-//// SR1
-//#define EXCLUDE_FROM_EXISTANCE(cf) do { auto it2 = Future.emplace(cf, BINARY_ABSENCE);\
-//if ((!it2.second) && ((it2.first->second & BINARY_ABSENCE) != BINARY_ABSENCE)) {\
-//return {};  /* Inconsistent model, as both clauses coexist */\
-//}} while(0)
-//#define EXCLUDE_FROM_EXISTANCE2(cf) do { auto it2 = Future.emplace(cf, BINARY_ABSENCE);\
-//if ((!it2.second) && ((it2.first->second & BINARY_ABSENCE) != BINARY_ABSENCE)) {\
-//return false;  /* Inconsistent model, as both clauses coexist */\
-//}} while(0)
-
-
-
-
-
-//#define EXCLUDE_FROM_ALL_MAPS(cf)  do { exclude_from_map(MNext, cf);\
-//exclude_from_map(Malt_response, cf);\
-//exclude_from_map(Mneg_chainsuccession, cf);                          \
-//exclude_from_map(MNext, cf);                          \
-//exclude_from_map(MFuture, cf);                          \
-//if (exclude_from_precedence_map(Mprecedence, cf, Future)) return {}; \
-//} while(0)
-//
-//#define EXCLUDE_FROM_ALL_MAPS2(cf)  do { exclude_from_map(MNext, cf);\
-//exclude_from_map(Malt_response, cf);\
-//exclude_from_map(Mneg_chainsuccession, cf);                          \
-//exclude_from_map(MNext, cf);                          \
-//exclude_from_map(MFuture, cf);                                       \
-//if (exclude_from_precedence_map(Mprecedence, cf, Future)) return false; \
-//} while(0)
-
-//#define EXCLUDE_FROM_NOTMALT_MAPS(cf)  do { exclude_from_map(MNext, cf); \
-//exclude_from_map(Mneg_chainsuccession, cf);                          \
-//exclude_from_map(MNext, cf);                          \
-//exclude_from_map(MFuture, cf);                          \
-//if (exclude_from_precedence_map(Mprecedence, cf, Future)) return {}; \
-//} while(0)
-
-
 static inline bool test_future_condition(const std::unordered_map<std::string, char>& Future, const std::string& label, char condition) {
     auto it = Future.find(label);
     if (it == Future.end()) return false;
@@ -85,7 +45,6 @@ bool model_reducer::reduce_map_to_be_considered(map_inout<std::string, std::stri
     for (const auto& [a, targets] : map_to_be_considered) {
         // If the activation shall never happen, the clause is never triggered for checking
         if (test_future_condition(Future, a, BINARY_ABSENCE)) continue;
-//        DEBUG_ASSERT(targets.size() == 1);
         for (const auto& b : targets) {
             auto itSrc = node_map.find(a);
             if (itSrc == node_map.end()) {
@@ -180,12 +139,12 @@ bool model_reducer::reduce_forward_re(const std::string& presentLabel) {
             // Removing all the choices containing this activated existential, as this trivally satisfies
             // the choice
             {
-                auto it = Mresp_existence.find_out(top);
-                if (it != Mresp_existence.end_out()) {
+                auto it = Mchoice.find_out(top);
+                if (it != Mchoice.end_out()) {
                     auto cp = it->second;
                     for (const auto& str : cp) {
-                        Mresp_existence.erase(str, top);
-                        Mresp_existence.erase(top, str);
+                        Mchoice.erase(str, top);
+                        Mchoice.erase(top, str);
                     }
                 }
             }
@@ -397,7 +356,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         // c. If this should occur when G(a -> X(a)) and G(a → X (¬aU a)), then this is clearly
         // dictating the impossibility of a to occur
         if (clause.first == clause.second) {
-//            auto it = Malt_response.find_out(clause.first);
             if (Malt_response.erase(clause.first, clause.second)) {
                 if (reduce_cr(MNext, clause.first))
                     continue;
@@ -415,15 +373,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 else
                     return result;
             }
-//            auto it = Mneg_chainsuccession.find_out(clause.first);
-//            if (it != Mneg_chainsuccession.end_out()) {
-//                if (it->second.contains(clause.second)) {
-//                    if (reduce_cr(MNext, clause.first))
-//                        continue;
-//                    else
-//                        return result;
-//                }
-//            }
         }
 
         // e. Attempting to add the clause
@@ -580,27 +529,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 it2 = it->second.erase(it2);
                 continue;
             }
-
-            // Observe! If we know that a shall never occur, then, given that we know per (a.) that the b
-            // might occur, then we need to rewrite this as a G(b -> X(G(!b))), which cannot be
-            // expressed as a NegSuccession, as this otherwise would state something different, that
-            // is an absurd. So, even if this condition happens, this might be ignored, as it leads
-            // to something not expressible with other declarative clauses, and it is therefore kept
-            // as such
-//            if (test_future_condition(Future, *it2, BINARY_ABSENCE)) {
-//            }
-
-            // NO! G(b -> F(a)) is actually weaker than this, so I shall not remove the current
-//            {
-//                auto it3 = MFuture.find_out(it->first);
-//                if (it3 != MFuture.end_out()) {
-//                    is_neg.second = *it2;
-//                    if (it3->second.contains(is_neg)) {
-//                        it2 = it->second.erase(it2);
-//                        continue;
-//                    }
-//                }
-//            }
         }
     }
     // Observe: not calling a similar procedure to ⑤ and its variants, as the former clause handling
@@ -651,6 +579,18 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     if (!reduce_map_to_be_considered(MNext))
         return result;
 
+    /// ⑤quater
+    for (const auto& [k, char_]: Future) {
+        if (char_ & BINARY_ABSENCE) {
+            if (!reduce_r(k))
+                return result;
+            if (!reduce_cr(MNext, k))
+                return result;
+            if (!reduce_cr(Malt_response, k))
+                return result;
+        }
+    }
+
     /// ⑩ Dealing with RespExistence very last, after all the absences have been produced (so to avoid
     /// unnecessary recomputations)
     for (const auto& clause : resp_existence) {
@@ -692,6 +632,16 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         Mresp_existence.add(clause.first, clause.second);
     }
     resp_existence.clear();
+    for (const auto& [k, char_]: Future) {
+        if (char_ & BINARY_ABSENCE) {
+            if (!reduce_r(k))
+                return result;
+            if (!reduce_cr(MNext, k))
+                return result;
+            if (!reduce_cr(Malt_response, k))
+                return result;
+        }
+    }
 
     /// ⑪ Detecting choices. This will only generate existences, and not absences
     for (const auto& clause : choice) {
@@ -843,6 +793,17 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     // i. RespExistence
     result_fill(Mresp_existence, RespExistence, result);
     DEBUG_ASSERT(Mresp_existence.empty());
+
+    // j. Choice
+    for (const auto& [a, apSet] : Mchoice) {
+        for (const auto& ap : apSet) {
+            if (a<ap)
+                result.emplace_back(Choice, a, ap);
+            else
+                DEBUG_ASSERT(Mchoice.contains(ap,a)); // Otherwise, it should be added later on
+        }
+    }
+    Mchoice.clear();
 
     /// ⑭ At this last stage, I can never have an inconsistent model. Therefore, if no clause was given,
     /// This is very likely to be an always-true model, which shall not be even considered for specification
