@@ -231,6 +231,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 break;
             case ChainResponse:
                 chain_response.emplace_back(clause.left, clause.right);
+                response.emplace_back(clause.left, clause.right);
                 break;
             case ChainPrecedence:
                 chain_precedence.emplace_back(clause.left, clause.right);
@@ -537,19 +538,23 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         result.emplace_back(ChainPrecedence, clause.first, clause.second);
     }
     chain_precedence.clear();
-    result_fill(MNext, ChainResponse, result);
-    DEBUG_ASSERT(MNext.empty());
     DEBUG_ASSERT(chain_precedence.empty());
     for (const auto& [a, bSet]: MFuture) {
+        if (test_future_condition(Future, a, BINARY_ABSENCE)) continue;
         for (const auto& [negated, b] : bSet) {
             if (negated) {
                 result.emplace_back(NegSuccession, a, b);
             } else {
-                result.emplace_back(Response, a, b);
+                // Returning G(A -> F(b)) iff. G(A -> X(b)) is not in the model
+                auto it = MNext.find_out(a);
+                if ((it == MNext.end_out()) || (!it->second.contains(b)))
+                    result.emplace_back(Response, a, b);
             }
         }
     }
     MFuture.clear();
+    result_fill(MNext, ChainResponse, result);
+    DEBUG_ASSERT(MNext.empty());
     result_fill(Malt_response, AltResponse, result);
     DEBUG_ASSERT(Malt_response.empty());
     for (const auto& [b, aSet]: Malt_precedence) {
