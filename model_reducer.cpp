@@ -720,12 +720,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     for (const auto& [b, aSet]: Malt_precedence) {
         // AltPrecedence holds if both the Precedence was reduced to an absence...
         if (test_future_condition(Future, b, BINARY_ABSENCE)) {
-            for (const auto& a : aSet) {
-                if (Malt_response.erase(a,b))
-                    result.emplace_back(AltSuccession, a, b);
-                else
-                    result.emplace_back(AltPrecedence, a, b);
-            }
+            continue;
         } else {
             //...Or if still the precedence holds. Still, we expect the precedence to be there o.O
             for (const auto& a : aSet) {
