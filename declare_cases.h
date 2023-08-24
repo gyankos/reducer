@@ -23,7 +23,8 @@ enum declare_cases{
     AltResponse,
     NegSuccession,
     NegChainSuccession,
-    NotCoexistence
+    NotCoexistence,
+    TRUTH
 };
 
 #include <string>

@@ -144,39 +144,95 @@ static inline void result_fill(map_inout<std::string, std::string>& map_to_consi
 
 
 bool model_reducer::reduce_cr(map_inout<std::string, std::string>& MN,
-                                                    const std::string& label) {
+                                                    const std::string& absentLabel) {
     std::unordered_set<std::string> visited;
     std::unordered_set<std::string> toRemove;
-    toRemove.emplace(label);
+    toRemove.emplace(absentLabel);
     while (!toRemove.empty()) {
         auto it3 = toRemove.begin();
-        auto top = *it3;
+        auto top = *it3; // Absent Label
         toRemove.erase(it3);
         if (visited.emplace(top).second) {
             if (!exclude_from_existance(top)) return false;
             if (!exclude_from_all_maps(top)) return false;
             auto it = MN.find_in(top);
             if (it != MN.end_in())
+                // Shifting the check to all the previous activations requiring the presence of a label in
+                // the future that shall be, on the other hand, absent.
                 toRemove.insert(it->second.begin(), it->second.end());
         }
     }
     return true;
 }
 
-bool model_reducer::reduce_r(const std::string& label) {
+bool model_reducer::reduce_forward_re(const std::string& presentLabel) {
+    std::unordered_set<std::string> visited;
+    std::unordered_set<std::string> toExtend;
+    toExtend.emplace(presentLabel);
+    while (!toExtend.empty()) {
+        auto it3 = toExtend.begin();
+        auto top = *it3; // Absent Label
+        toExtend.erase(it3);
+        if (visited.emplace(top).second) {
+            // If the novel existance leads to an inconsistent model, terminate
+            if (!allow_existance(top))
+                return false;
+            // Removing all the choices containing this activated existential, as this trivally satisfies
+            // the choice
+            {
+                auto it = Mresp_existence.find_out(top);
+                if (it != Mresp_existence.end_out()) {
+                    auto cp = it->second;
+                    for (const auto& str : cp) {
+                        Mresp_existence.erase(str, top);
+                        Mresp_existence.erase(top, str);
+                    }
+                }
+            }
+            // If there are clauses having targets such existence, then please remove those,
+            // as those are completely pointless (as the existence already exists alone)
+            {
+                auto it = Mresp_existence.find_in(top);
+                if (it != Mresp_existence.end_in()) {
+                    auto cp = it->second;
+                    for (const auto& str : cp)
+                        Mresp_existence.erase(str, top);
+                }
+            }
+            // If there are clauses having such existence as activation, then remove all such clauses
+            // and reduce those into other existentials in the next run
+            auto it = Mresp_existence.find_out(top);
+            if (it != Mresp_existence.end_out()) {
+                // Shifting the check to all the previous activations requiring the presence of a label in
+                // the future that shall be, on the other hand, absent.
+                toExtend.insert(it->second.begin(), it->second.end());
+                // Now, removing all the clauses starting from top, after saving all of the consequences
+                Mresp_existence.eraseFirst(top);
+            }
+        }
+    }
+    return true;
+}
+
+bool model_reducer::reduce_r(const std::string& absentLabel) {
     std::unordered_set<std::string> visited;
     std::unordered_set<std::string> toRemove;
-    toRemove.emplace(label);
-    std::pair<is_negated, std::string> is_neg{false, ""};
+    toRemove.emplace(absentLabel);
+    std::pair<is_negated, std::string> is_true{false, ""};
     while (!toRemove.empty()) {
         auto it3 = toRemove.begin();
-        is_neg.second = *it3;
+        is_true.second = *it3; // Absent Label
         toRemove.erase(it3);
-        if (visited.emplace(is_neg.second).second) {
-            if (!exclude_from_existance(is_neg.second)) return false;
-            if (!exclude_from_all_maps(is_neg.second)) return false;
-            auto it = MFuture.find_in(is_neg);
+        if (visited.emplace(is_true.second).second) {
+            // Setting this as an Absence clause. Returns false if this leads to an inconsistency
+            if (!exclude_from_existance(is_true.second)) return false;
+            // Removing all the clauses having the absentLabel as an activation condition, as they might
+            // never occur
+            if (!exclude_from_all_maps(is_true.second)) return false;
+            auto it = MFuture.find_in(is_true);
             if (it != MFuture.end_in())
+                // Shifting the check to all the previous activations requiring the presence of a label in
+                // the future that shall be, on the other hand, absent.
                 toRemove.insert(it->second.begin(), it->second.end());
         }
     }
@@ -185,91 +241,135 @@ bool model_reducer::reduce_r(const std::string& label) {
 
 std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& model) {
     clear();
+    std::vector<DatalessCases> result;
 
-    // Preliminary inconsistency detection with absence/existence, expanding the compound clauses
-    // and filling up the vectors/maps
+    /// ① Knowledge-Base expansion phase
+    /// Preliminary inconsistency detection with absence/existence, expanding the compound clauses
+    /// and filling up the vectors/maps
     for (const auto& clause : model) {
         switch (clause.casus) {
             case Existence: {
-                auto it = Future.emplace(clause.left, BINARY_PRESENCE);
-                if ((!it.second) && ((it.first->second & BINARY_PRESENCE) != BINARY_PRESENCE)) {
-                    return {};  // Inconsistent model, as both clauses coexist
-                }
-            }
-                break;
+                if (!allow_existance(clause.left))
+                    return result; // Inconsistent empty model
+            } break;
+
             case Absence: {
-                if (!exclude_from_existance(clause.left)) return {};
-            }
-                break;
+                if (!exclude_from_existance(clause.left))
+                    return result;
+            } break;
+
             case Choice:
                 if (clause.left < clause.right)
                     choice.emplace_back(clause.left, clause.right);
-                else
+                else if (clause.left != clause.right)
                     choice.emplace_back(clause.right, clause.left);
+                else {
+                    if (!allow_existance(clause.left))
+                        return result; // Inconsistent empty model
+                }
                 break;
+
             case ExclChoice:
                 if (clause.left < clause.right){
                     choice.emplace_back(clause.left, clause.right);
                     not_coexistence.emplace_back(clause.left, clause.right);
-                } else {
+                } else if (clause.left != clause.right) {
                     choice.emplace_back(clause.right, clause.left);
                     not_coexistence.emplace_back(clause.right, clause.left);
+                } else {
+                    // Exclusive choice for the same activity label is remarking that this should
+                    // both exist and not exists, which is inconsistent
+                    return result;
                 }
                 break;
+
             case RespExistence:
-                resp_existence.emplace_back(clause.left, clause.right);
+                if (clause.left != clause.right) {
+                    resp_existence.emplace_back(clause.left, clause.right);
+                }
+                // Else, if both are the same, this is a clause which is always true. Ignoring the
+                // Always true clause at the moment, and distinguishing this case from an inconsistent
+                // Model as an inconsistent model is immediately returned without any further ado,
+                // while reaching the end of the algorithm with nothing to do means that there was no
+                // inconsistency, and therefore a bogus always true clause can be added instead
                 break;
+
             case CoExistence:
-                resp_existence.emplace_back(clause.left, clause.right);
-                resp_existence.emplace_back(clause.right, clause.left);
+                if (clause.left != clause.right) {
+                    resp_existence.emplace_back(clause.left, clause.right);
+                    resp_existence.emplace_back(clause.right, clause.left);
+                }
                 break;
+
             case Response:
                 response.emplace_back(clause.left, clause.right);
                 break;
+
             case Precedence:
                 Mprecedence.add(clause.left, clause.right);
                 break;
+
             case ChainResponse:
                 chain_response.emplace_back(clause.left, clause.right);
                 response.emplace_back(clause.left, clause.right);
                 break;
+
             case ChainPrecedence:
                 chain_precedence.emplace_back(clause.left, clause.right);
                 break;
+
             case ChainSuccession:
                 chain_response.emplace_back(clause.left, clause.right);
                 chain_precedence.emplace_back(clause.right, clause.left);
                 break;
+
             case Succession:
                 response.emplace_back(clause.left, clause.right);
                 Mprecedence.add(clause.left, clause.right);
                 break;
+
             case AltPrecedence:
                 Mprecedence.add(clause.left, clause.right);
-                Malt_precedence.add(clause.right, clause.left);
+                Malt_precedence.add(clause.right, clause.left); // This only regards G(b → X(¬bW a))
                 break;
+
             case AltSuccession:
+                response.emplace_back(clause.left, clause.right);
                 Mprecedence.add(clause.left, clause.right);
-                Malt_precedence.add(clause.right, clause.left);
+                Malt_precedence.add(clause.right, clause.left); // This only regards G(b → X(¬bW a))
                 Malt_response.add(clause.left, clause.right);
                 break;
+
             case AltResponse:
+                response.emplace_back(clause.left, clause.right);
                 Malt_response.add(clause.left, clause.right);
                 break;
+
             case NegSuccession:
                 neg_succession.emplace_back(clause.left, clause.right);
                 break;
+
             case NegChainSuccession:
                 Mneg_chainsuccession.add(clause.left, clause.right);
                 break;
+
             case NotCoexistence:
                 if (clause.left < clause.right)
                     not_coexistence.emplace_back(clause.left, clause.right);
-                else
+                else if (clause.left != clause.right)
                     not_coexistence.emplace_back(clause.right, clause.left);
+                else {
+                    if (!exclude_from_existance(clause.left))
+                        return result;
+                }
+                break;
+
+            case TRUTH:
                 break;
         }
     }
+
+    /// ② Ensuring that each clause appears at most only once in the model
     remove_duplicates(not_coexistence);
     remove_duplicates(response);
     remove_duplicates(neg_succession);
@@ -279,181 +379,244 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     remove_duplicates(choice);
     remove_duplicates(not_coexistence);
 
-    // Detecting G(A -> X(b))
+    /// ③ Detecting ChainResponse(A,B): G(A -> X(b))
     for (const auto& clause : chain_response) {
+        // a. Not considering the clause if we now that the activation condition shall never occur
         if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
             continue;
+
+        // b. If the target condition is remarked as absence, then this implies the absence of the
+        // activation, too! (Similar to ④c)
         if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
             if (reduce_cr(MNext, clause.first))
                 continue;
             else
-                return {};
+                return result;
         }
+
+        // c. If this should occur when G(a -> X(a)) and G(a → X (¬aU a)), then this is clearly
+        // dictating the impossibility of a to occur
         if (clause.first == clause.second) {
-            auto it = Malt_response.find_out(clause.first);
-            if (it != Malt_response.end_out()) {
+//            auto it = Malt_response.find_out(clause.first);
+            if (Malt_response.erase(clause.first, clause.second)) {
                 if (reduce_cr(MNext, clause.first))
                     continue;
                 else
-                    return {};
+                    return result;
             }
         }
+
+        // d. If there is also a ChainSuccession with the same activation and target condition,
+        // this clearly postulates the absence of the activation.
         {
-            auto it = Mneg_chainsuccession.find_out(clause.first);
-            if (it != Mneg_chainsuccession.end_out()) {
-                if (it->second.contains(clause.second)) {
-                    if (reduce_cr(MNext, clause.first))
-                        continue;
-                    else
-                        return {};
-                }
+            if (Mneg_chainsuccession.erase(clause.first, clause.second)) {
+                if (reduce_cr(MNext, clause.first))
+                    continue;
+                else
+                    return result;
             }
+//            auto it = Mneg_chainsuccession.find_out(clause.first);
+//            if (it != Mneg_chainsuccession.end_out()) {
+//                if (it->second.contains(clause.second)) {
+//                    if (reduce_cr(MNext, clause.first))
+//                        continue;
+//                    else
+//                        return result;
+//                }
+//            }
         }
+
+        // e. Attempting to add the clause
         auto& mnextA = MNext.add(clause.first, clause.second);
-//        auto& mnextA = MNext[clause.first];
-//        mnextA.emplace(clause.second);
+
+        // f. if the next should contain two elements, due to G(a & b -> False) then the activation
+        // should be also negated
         if (mnextA.size() > 1) {
             if (reduce_cr(MNext, clause.first))
                 continue;
             else
-                return {};
+                return result;
         }
     }
     chain_response.clear();
 
-    // Detecting G(a -> F(b))
+    /// ④ Detecting Response(A,B): G(a -> F(b))
     for (const auto& clause : response) {
+        // a. Not considering the clause if we now that the activation condition shall never occur
         if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
             continue;
-        {
-            // G(a->X(b)) is stronger than G(a -> F(b)), so we can avoid the latter
-            auto it = MNext.find_out(clause.first);
-            if (it != MNext.end_out()) {
-                if (it->second.contains(clause.second)) {
-                    continue;
-                }
-            }
-        }
+
+        // b. G(a->X(b)) is stronger than G(a -> F(b)), so we can avoid the latter
+        // This holds for G(a & b -> False) for which G(a -> F(b)) = G(a -> X(F(b)))
+        if (MNext.contains(clause.first, clause.second))
+            continue;
+
+        // d. If the target condition is remarked as absence, then this implies the absence of the
+        // activation, too! This requires checking all the clauses for which G(c -> F(a))
         if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
             if (reduce_r(clause.first))
-                continue;
+                continue; // Avoiding adding the clause as per d.
             else
-                return {};
+                return result;
         }
+
+        // e. Adding the clause
         MFuture.add(clause.first, {false, clause.second});
-//        auto& mfutureA = MFuture[clause.first];
-//        mfutureA.emplace(false, clause.second);
     }
+
+    /// ⑤ Discarding all the clauses being falsified from ChainResponse, that might have not been
+    /// handled
     for (const auto& [k, char_]: Future) {
         if (char_ & BINARY_ABSENCE) {
-            if (reduce_cr(MNext, k))
-                continue;
-            else
-                return {};
+            if (!reduce_cr(MNext, k))
+                return result;
         }
     }
     response.clear();
 
-    // Detecting G(a -> G(!b))
+    /// ⑥ Detecting NegSuccession: G(a -> G(!b))
     std::pair<is_negated, std::string> is_positive{false, ""};
     for (const auto& clause : neg_succession) {
+        // a. Not considering the clause if we now that the activation condition shall never occur
         if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
             continue;
+
+        // b. if G(a -> F(b)) is present, this boils down to G(a -> False) = G(!a)
+        //    This now also contemplates G(a -> X(b)) as G(a & b -> False) entails that
+        //    it never happens that an event is satisfied by more than one atom for activity label
         auto mfutureA = MFuture.find_out(clause.first);
-        is_positive.second = clause.second;
-        if (mfutureA != MFuture.end_out() && (mfutureA->second.contains(is_positive))) {
-            if (!exclude_from_existance(clause.first)) return {};
-            if (!exclude_from_all_maps(clause.first)) return {};
+        if (MFuture.contains(clause.first, is_positive)) {
+            if (!exclude_from_existance(clause.first))
+                return result;
+            if (!exclude_from_all_maps(clause.first))
+                return result;
             continue;
         }
-        {
-            auto it = MNext.find_out(clause.first);
-            if (it != MNext.end_out()) {
-                if (it->second.contains(clause.second)) {
-                    if (!exclude_from_existance(clause.first)) return {};
-                    if (!exclude_from_all_maps(clause.first)) return {};
-                    continue;
-                }
-            }
+
+        // c. If we know that a is present, then  we know that b shall never appear.
+        //    If this leads to an inconsistent model, return immediately
+        if (test_future_condition(Future, clause.first, BINARY_PRESENCE)) {
+            if (!exclude_from_existance(clause.second))
+                return result;
+            continue;
         }
-        if (mfutureA == MFuture.end_out())
-            MFuture.add(clause.first, {true, clause.second});
-        else
-            mfutureA->second.emplace(true, clause.second);
+
+        // d. Adding the NegSuccession only if no further simplification was provided
+        MFuture.add(mfutureA, clause.first, {true, clause.second});
     }
     neg_succession.clear();
 
-    // Declare AltResponse G(a -> X(!a U b))
+    /// ⑤bis Discarding all the clauses being falsified from ChainResponse, that might have not been
+    /// handled
+    for (const auto& [k, char_]: Future) {
+        if (char_ & BINARY_ABSENCE) {
+            if (!reduce_r(k))
+                return result;
+            if (!reduce_cr(MNext, k))
+                return result;
+        }
+    }
+
+    /// ⑦ Declare AltResponse(A,B) G(a -> X(!a U b)).
+    /// As this entails G(a -> F(b)), this case is handled in ④
+    // The map was previously required to fastly scanning the map. For this other set up, we need to
+    // constantly update the map while iterating, which might be detrimental on the long run. Therefore,
+    // we prefer to go back to the list of elements
+    for (const auto& [a, bSet] : Malt_response)
+        for (const auto& b : bSet)
+            alt_response.emplace_back(a, b);
+    Malt_response.clear();
     std::pair<is_negated, std::string> is_neg{true, ""};
-    for (auto it3 = Malt_response.begin_out(); it3 != Malt_response.end_out(); ) {
-        if (test_future_condition(Future, it3->first, BINARY_ABSENCE)) continue;
-        bool badMalt = false;
-        for (auto it4 = it3->second.begin(); it4 != it3->second.end(); ) {
-            auto it = MNext.find_out(it3->first);
-            if (it != MNext.end_out()) {
-                if (it->second.contains(*it4)) {
-                    it4 = it3->second.erase(it4);
-                    continue;
-                }
-            }
+    for (const auto& clause : alt_response) {
+        // a. Not considering the clause if we now that the activation condition shall never occur
+        if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
+            continue;
 
-            bool hasMFutureANotB = false;
-            {
-                auto it2 = MFuture.find_out(it3->first);
-                if (it2 != MFuture.end_out()) {
-                    is_neg.second = *it4;
-                    hasMFutureANotB = it2->second.contains(is_neg);
-                }
-            }
-            if (hasMFutureANotB || (test_future_condition(Future, *it4, BINARY_ABSENCE))) {
-                if (!exclude_from_existance(it3->first)) return {};
-                if (!exclude_from_all_maps(it3->first, false)) return {};
-                badMalt = true;
-                it3 = Malt_response.erase_out(it3);
-                break; // Skipping all the it4s
-            }
-
-            auto it2 = MFuture.find_out(it3->first);
-            if (it2 != MFuture.end_out()) {
-                is_positive.second = *it4;
-                it2->second.erase(is_positive);
-            }
-            it4++;
+        // b. ChainResponse is stronger than AltResponse, so keeping the former
+        if (MNext.contains(clause.first, clause.second)) {
+            continue;
         }
 
-        if (!badMalt) it3++;
-    }
-    // Not erasing: already in map!
+        // c. If G(a -> G(!b)) or G(!b), then this entails the absence of a, with a cascade effect
+        // towards the other clauses
+        is_neg.second = clause.second;
+        if (MFuture.contains(clause.first, is_neg) ||
+            (test_future_condition(Future, clause.second, BINARY_ABSENCE))) {
+            if (reduce_cr(Malt_response, clause.first))
+                continue;
+            else
+                return result;
+        }
 
-    // If AltPrecedence has some rewritings that can be ignored, we just preserve the precedence part
+        // Observe! Keeping the G(a -> F(b)), as this might trigger other clause rewritings with absences.
+        // Therefore, removing the clause G(a -> F(b)) is handled only at the end of the algorithm
+    }
+    alt_response.clear();
+
+    /// ⑤ter Discarding all the clauses being falsified from ChainResponse, that might have not been
+    /// handled
+    for (const auto& [k, char_]: Future) {
+        if (char_ & BINARY_ABSENCE) {
+            if (!reduce_r(k))
+                return result;
+            if (!reduce_cr(MNext, k))
+                return result;
+            if (!reduce_cr(Malt_response, k))
+                return result;
+        }
+    }
+
+    /// ⑧ Declare AltPrecedence(A,B): this deals only with the G(b → X(¬bW a)) side of things,
+    /// as the precedence part is dealt within the precedence itself. This clause does not lead
+    /// to additional rewritings, and is kept last
     for (auto it = Malt_precedence.begin_out(); it != Malt_precedence.end_out(); it++) {
-        if (test_future_condition(Future, it->first, BINARY_ABSENCE)) continue;
+        // a. Not considering the clause if we now that the activation condition shall never occur
+        if (test_future_condition(Future, it->first, BINARY_ABSENCE))
+            continue;
+
         for (auto it2 = it->second.begin(); it2 != it->second.end(); ) {
-            {
-                auto it3 = MNext.find_out(it->first);
-                if (it3 != MNext.end_out()) {
-                    if (it3->second.contains(*it2)) {
-                        it2 = it->second.erase(it2);
-                        continue;
-                    }
-                }
+            // b. If G(b -> X(a)) exists, then the latter is stronger than the current, which is then removed
+            if (MNext.contains(it->first, *it2)) {
+                it2 = it->second.erase(it2);
+                continue;
             }
-            {
-                auto it3 = MFuture.find_out(it->first);
-                if (it3 != MFuture.end_out()) {
-                    is_neg.second = *it2;
-                    if (it3->second.contains(is_neg)) {
-                        it2 = it->second.erase(it2);
-                        continue;
-                    }
-                }
-            }
+
+            // Observe! If we know that a shall never occur, then, given that we know per (a.) that the b
+            // might occur, then we need to rewrite this as a G(b -> X(G(!b))), which cannot be
+            // expressed as a NegSuccession, as this otherwise would state something different, that
+            // is an absurd. So, even if this condition happens, this might be ignored, as it leads
+            // to something not expressible with other declarative clauses, and it is therefore kept
+            // as such
+//            if (test_future_condition(Future, *it2, BINARY_ABSENCE)) {
+//            }
+
+            // NO! G(b -> F(a)) is actually weaker than this, so I shall not remove the current
+//            {
+//                auto it3 = MFuture.find_out(it->first);
+//                if (it3 != MFuture.end_out()) {
+//                    is_neg.second = *it2;
+//                    if (it3->second.contains(is_neg)) {
+//                        it2 = it->second.erase(it2);
+//                        continue;
+//                    }
+//                }
+//            }
         }
     }
-    // Not erasing: already in map!
+    // Observe: not calling a similar procedure to ⑤ and its variants, as the former clause handling
+    // does not lead to additional elements to be discarded
 
-    // TODO: Precedence, ChainResponse, Response --> Absences
-    if (!reduce_map_to_be_considered(Mprecedence)) return {};
+
+    /// ⑨ Detecting possible loops leading in LTLf to absence of all the activation codnitions
+    /// This is applied to Precedence, Response, and ChainResponse. In all of these cases,
+    /// I am detecting always whether this reduction also leads to a model inconsistency, for which
+    /// I immediately return the empty model instead of furhter processing
+    // a. Precedence
+    if (!reduce_map_to_be_considered(Mprecedence))
+        return result;
+
+    // b. Dealing with Response requires to remove the information for NegSuccession first,
+    // while removing the not NegSuccession information from the map
     {
         map_inout<std::string, std::string> intermediate;
         for (auto it2 = MFuture.begin_out(); it2 != MFuture.end_out(); ) {
@@ -472,102 +635,153 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             else
                 it2++;
         }
-        if (!reduce_map_to_be_considered(intermediate, true)) return {};
+        // Reducing only the Responses from the map
+        if (!reduce_map_to_be_considered(intermediate, true))
+            return result;
+        // Adding back only the information that was not removed from the map
         for (const auto& [k, vals] : intermediate) {
-            for (const auto& b : vals)
-                MFuture.add(k, {false, b});
+            for (const auto& b : vals) {
+                is_positive.second = b;
+                MFuture.add(k, is_positive);
+            }
         }
     }
-    if (!reduce_map_to_be_considered(MNext)) return {};
-    // TODO: Precedence, ChainResponse, Response --> Absences
 
-    std::vector<DatalessCases> result;
+    // c. ChainResponse
+    if (!reduce_map_to_be_considered(MNext))
+        return result;
+
+    /// ⑩ Dealing with RespExistence very last, after all the absences have been produced (so to avoid
+    /// unnecessary recomputations)
     for (const auto& clause : resp_existence) {
-        // If the activation shall never happen, the clause is never triggered for checking
-        if (test_future_condition(Future, clause.first, BINARY_ABSENCE)) continue;
+        // a. If the activation shall never happen, the clause is never triggered for checking
+        if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
+            continue;
 
         if (test_future_condition(Future, clause.first, BINARY_PRESENCE)) {
-            // If the clause is activated and the response shall never happen, then I have an inconsistency
             if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
-                return {}; // Inconsistent model, as we prescribe that b shall never happen
+                // b. If the clause is activated and the response shall never happen, then I have an
+                // inconsistency...
+                return result; // Inconsistent model, as we prescribe that b shall never happen
             } else {
-                // Otherwise, enforce this element to appear
-                Future.emplace(clause.second, BINARY_PRESENCE);
+                // ... Otherwise, enforce this element to appear and ignore the clause, and immediately
+                // return if this leads to an inconsistent model, which should have been detected in the
+                // previous branch if any, but this might trigger other inconsistencies that were not
+                // detectable before
+                if (!reduce_forward_re(clause.second))
+                    return result;
+                // Discarding adding the clause here
                 continue;
             }
         }
 
-        // Otherwise, if it is not prescribed to be activated, then I shall declare the
-        // clause to be []!a
-        if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
-            if (!exclude_from_existance(clause.first)) return {};
-            if (!exclude_from_all_maps(clause.first)) return {};
+        // c. If the second element is already present, then it makes little sense of adding a RespExistence,
+        //    as we require that the target should be there already indepedently from the activation
+        if (test_future_condition(Future, clause.second, BINARY_PRESENCE)) {
             continue;
         }
-        result.emplace_back(RespExistence, clause.first, clause.second);
-//        MResp_exsistence[clause.first].emplace(clause.second);
+
+        // d. Otherwise, if it is not prescribed to be activated, then I shall declare the
+        // clause to be []!a. Also, propagating this absence towards the other clauses being collected
+        if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
+            if (reduce_cr(Mresp_existence, clause.second))
+                continue;
+            else
+                return result;
+        }
+        Mresp_existence.add(clause.first, clause.second);
     }
     resp_existence.clear();
 
-    // Detecting inconsistent models through not_coexistence
-    for (const auto& clause : not_coexistence) {
-        if ((test_future_condition(Future, clause.first, BINARY_PRESENCE)) &&
-            (test_future_condition(Future, clause.second, BINARY_PRESENCE))) {
-            return {}; // Inconsistent model, as both clauses coexist
-        }
-    }
-    not_coexistence.clear();
-    DEBUG_ASSERT(not_coexistence.empty());
-    DEBUG_ASSERT(chain_response.empty());
-    DEBUG_ASSERT(response.empty());
+    /// ⑪ Detecting choices. This will only generate existences, and not absences
     for (const auto& clause : choice) {
+        // a. if we know for sure that both events must eventually occur, then choice is weaker,
+        // and can be discarded in favour of two existences
         if (test_future_condition(Future, clause.first, BINARY_PRESENCE) ||
             test_future_condition(Future, clause.second, BINARY_PRESENCE))
             continue;
-        if ((test_future_condition(Future, clause.first, BINARY_ABSENCE)) &&
-            (test_future_condition(Future, clause.second, BINARY_ABSENCE))) {
-            return {}; // Inconsistent model, as both clauses coexist
+
+        // b. If both elements are said to be absent, then I have an inconsistent model...
+        bool leftAbsent = test_future_condition(Future, clause.first, BINARY_ABSENCE);
+        bool rightAbsent = test_future_condition(Future, clause.second, BINARY_ABSENCE);
+        if (leftAbsent && rightAbsent) {
+            return result; // Inconsistent model, as both clauses coexist
+        } else
+            // ... otherwise, if just one of the two is absent, then this boils down to F(a)
+            // While doing so, further reducing the choices
+            if (leftAbsent) {
+                if (!reduce_forward_re(clause.second)) {
+                    return result; // Inconsistent empty model
+                } else
+                    continue; // not adding the clause!
+        } else if (rightAbsent) {
+                if (!reduce_forward_re(clause.first)) {
+                    return result; // Inconsistent empty model
+                } else
+                    continue; // not adding the clause!
         }
-        result.emplace_back(Choice, clause.first, clause.second);
+
+        // c. In all of the remaining cases, then I am introducing the clause.
+        Mchoice.add(clause.first, clause.second);
+        Mchoice.add(clause.second, clause.first);
     }
     choice.clear();
-    DEBUG_ASSERT(choice.empty());
-    // neg_succession --> MFuture
+
+    /// ⑫  Detecting inconsistent models through not_coexistence
+    for (const auto& clause : not_coexistence) {
+        // a. If both events are present, then the model is inconsistent
+        if ((test_future_condition(Future, clause.first, BINARY_PRESENCE)) &&
+            (test_future_condition(Future, clause.second, BINARY_PRESENCE))) {
+            result.clear();
+            return result; // Inconsistent model, as both clauses coexist.
+        }
+
+        // I can start directly populate the model, at this stage
+        result.emplace_back(NotCoexistence, clause.first, clause.second);
+    }
+    not_coexistence.clear();
+
+    DEBUG_ASSERT(not_coexistence.empty());
+    DEBUG_ASSERT(chain_response.empty());
+    DEBUG_ASSERT(response.empty());
     DEBUG_ASSERT(resp_existence.empty());
+    DEBUG_ASSERT(choice.empty());
+    DEBUG_ASSERT(choice.empty());
+    DEBUG_ASSERT(resp_existence.empty());
+
+    /// ⑬ Now, adding all the results to the model
+    // a. ChainPrecedence(B,A)
     for (const auto& clause : chain_precedence) {
-        result.emplace_back(ChainPrecedence, clause.first, clause.second);
+        // In particular, if there is also a ChainResponse(A,B), then return a ChainSuccession instead!
+        if (MNext.erase(clause.second, clause.first)) {
+            result.emplace_back(ChainSuccession, clause.second, clause.first);
+        } else
+            result.emplace_back(ChainPrecedence, clause.first, clause.second);
     }
     chain_precedence.clear();
     DEBUG_ASSERT(chain_precedence.empty());
-    for (const auto& [a, bSet]: MFuture) {
-        if (test_future_condition(Future, a, BINARY_ABSENCE)) continue;
-        for (const auto& [negated, b] : bSet) {
-            if (negated) {
-                result.emplace_back(NegSuccession, a, b);
-            } else {
-                // Returning G(A -> F(b)) iff. G(A -> X(b)) is not in the model
-                auto it = MNext.find_out(a);
-                if ((it == MNext.end_out()) || (!it->second.contains(b)))
-                    result.emplace_back(Response, a, b);
-            }
-        }
-    }
-    MFuture.clear();
-    result_fill(MNext, ChainResponse, result);
-    DEBUG_ASSERT(MNext.empty());
-    result_fill(Malt_response, AltResponse, result);
-    DEBUG_ASSERT(Malt_response.empty());
+
+    // c. Dealing with the G(b → X(¬bW a)) part of AltPrecedence(A,B). Still, considering adding an
+    // AltSuccession if a AltResponse is also present
     for (const auto& [b, aSet]: Malt_precedence) {
+        // AltPrecedence holds if both the Precedence was reduced to an absence...
         if (test_future_condition(Future, b, BINARY_ABSENCE)) {
             for (const auto& a : aSet) {
-                result.emplace_back(AltPrecedence, a, b);
+                if (Malt_response.erase(a,b))
+                    result.emplace_back(AltSuccession, a, b);
+                else
+                    result.emplace_back(AltPrecedence, a, b);
             }
         } else {
+            //...Or if still the precedence holds. Still, we expect the precedence to be there o.O
             for (const auto& a : aSet) {
                 auto it = Mprecedence.find_out(a);
                 if (it != Mprecedence.end_out()) {
                     if (it->second.contains(b)) {
-                        result.emplace_back(AltPrecedence, a, b);
+                        if (Malt_response.erase(a,b))
+                            result.emplace_back(AltSuccession, a, b);
+                        else
+                            result.emplace_back(AltPrecedence, a, b);
                     } else {
                         throw std::runtime_error("LOGICAL ERROR (2)!");
                     }
@@ -578,8 +792,42 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         }
     }
     Malt_precedence.clear();
-    result_fill(Mneg_chainsuccession, NegChainSuccession, result);
-    DEBUG_ASSERT(Mneg_chainsuccession.empty());
+
+    // d. Dealing with the remaining AltResponse(A,B)
+    for (const auto& [a, bSet]: Malt_response) {
+        for (const auto& b : bSet) {
+            result.emplace_back(AltResponse, a, b);
+        }
+    }
+    Malt_response.clear();
+
+    // e. Response(A,B)
+    for (const auto& [a, bSet]: MFuture) {
+        if (test_future_condition(Future, a, BINARY_ABSENCE)) continue;
+        for (const auto& [negated, b] : bSet) {
+            if (negated) {
+                result.emplace_back(NegSuccession, a, b);
+            } else {
+                // Returning G(A -> F(b)) iff. G(A -> X(b)) is not in the model
+                auto it = MNext.find_out(a);
+                if ((it == MNext.end_out()) || (!it->second.contains(b))) {
+                    // If there is also a Precedence, then return a Succession
+                    if (Mprecedence.erase(a,b)) {
+                        result.emplace_back(Succession, a, b);
+                    } else
+                        // Otherwise, return a simple Response
+                        result.emplace_back(Response, a, b);
+                }
+            }
+        }
+    }
+    MFuture.clear();
+
+    // f. ChainResponse(A,B), adding the remaining ones, which are not ChainSuccessions
+    result_fill(MNext, ChainResponse, result);
+    DEBUG_ASSERT(MNext.empty());
+
+    // g. Existence(A) and Absence(A)
     for (const auto& [act, char_] : Future) {
         if ((char_ & BINARY_PRESENCE))
             result.emplace_back(Existence, act, "");
@@ -587,5 +835,19 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             result.emplace_back(Absence, act, "");
     }
     Future.clear();
+
+    // h. NegChainSuccession
+    result_fill(Mneg_chainsuccession, NegChainSuccession, result);
+    DEBUG_ASSERT(Mneg_chainsuccession.empty());
+
+    // i. RespExistence
+    result_fill(Mresp_existence, RespExistence, result);
+    DEBUG_ASSERT(Mresp_existence.empty());
+
+    /// ⑭ At this last stage, I can never have an inconsistent model. Therefore, if no clause was given,
+    /// This is very likely to be an always-true model, which shall not be even considered for specification
+    /// checking
+    if (result.empty())
+        result.emplace_back(TRUTH, "", "");
     return result;
 }

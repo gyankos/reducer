@@ -45,20 +45,30 @@ static inline bool exclude_from_precedence_map(map_inout<std::string, std::strin
 
 struct model_reducer {
     std::unordered_map<std::string, char> Future;
-    std::vector<std::pair<std::string,std::string>> not_coexistence, chain_response, response, choice, neg_succession, resp_existence, chain_precedence;
+    std::vector<std::pair<std::string,std::string>> not_coexistence, chain_response, response, choice, neg_succession, resp_existence, chain_precedence, alt_response;
 
     map_inout<std::string, std::pair<is_negated, std::string>> MFuture;
     map_inout<std::string, std::string> Malt_response,
             Mprecedence,
             MNext,
             Mneg_chainsuccession,
-            Malt_precedence;//,
+            Malt_precedence,
+            Mresp_existence,
+            Mchoice;//,
 //            MResp_exsistence;
 
     inline bool exclude_from_existance(const std::string& cf) { // SR1
         auto it2 = Future.emplace(cf, BINARY_ABSENCE);
         if ((!it2.second) && ((it2.first->second & BINARY_ABSENCE) != BINARY_ABSENCE)) {
             return false;  /* Inconsistent model, as both clauses coexist */
+        }
+        return true;
+    }
+
+    inline bool allow_existance(const std::string& cf) { // SR1
+        auto it = Future.emplace(cf, BINARY_PRESENCE);
+        if ((!it.second) && ((it.first->second & BINARY_PRESENCE) != BINARY_PRESENCE)) {
+            return false;  // Inconsistent model, as both clauses coexist
         }
         return true;
     }
@@ -84,6 +94,7 @@ struct model_reducer {
         chain_precedence.clear();
         Malt_response.clear();
     }
+    bool reduce_forward_re(const std::string& absentLabel);
     bool reduce_map_to_be_considered(map_inout<std::string, std::string>& to_reduce,  bool alsoPassedMap = false);
     std::vector<DatalessCases> run(const std::vector<DatalessCases>& model);
     bool reduce_cr(map_inout<std::string, std::string>& MN,
