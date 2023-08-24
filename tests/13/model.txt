@@ -1,0 +1,4 @@
+ChainResponse("f" "d")
+ChainResponse("d" "a")
+NegSuccession("a" "b")
+Response("a" "b")

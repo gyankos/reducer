@@ -1,0 +1,4 @@
+ChainResponse("a" "b")
+ChainResponse("b" "c")
+ChainResponse("c" "d")
+Absence("d" "")

@@ -426,14 +426,17 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     /// ⑥ Detecting NegSuccession: G(a -> G(!b))
     std::pair<is_negated, std::string> is_positive{false, ""};
     for (const auto& clause : neg_succession) {
-        // a. Not considering the clause if we now that the activation condition shall never occur
-        if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
+        // a. Not considering the clause if we now that the activation condition shall never occur.
+        //    Similarly, if we already know that the second shall never occur, then we can ignore the
+        //    presence of an activation
+        if (test_future_condition(Future, clause.first, BINARY_ABSENCE) ||
+                test_future_condition(Future, clause.second, BINARY_ABSENCE))
             continue;
 
         // b. if G(a -> F(b)) is present, this boils down to G(a -> False) = G(!a)
         //    This now also contemplates G(a -> X(b)) as G(a & b -> False) entails that
         //    it never happens that an event is satisfied by more than one atom for activity label
-        auto mfutureA = MFuture.find_out(clause.first);
+        is_positive.second = clause.second;
         if (MFuture.contains(clause.first, is_positive)) {
             if (!exclude_from_existance(clause.first))
                 return result;
@@ -442,15 +445,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             continue;
         }
 
-        // c. If we know that a is present, then  we know that b shall never appear.
-        //    If this leads to an inconsistent model, return immediately
-        if (test_future_condition(Future, clause.first, BINARY_PRESENCE)) {
-            if (!exclude_from_existance(clause.second))
-                return result;
-            continue;
-        }
-
         // d. Adding the NegSuccession only if no further simplification was provided
+        auto mfutureA = MFuture.find_out(clause.first);
         MFuture.add(mfutureA, clause.first, {true, clause.second});
     }
     neg_succession.clear();
