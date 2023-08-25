@@ -76,7 +76,8 @@ struct model_reducer {
         return true;
     }
 
-    inline bool exclude_from_all_maps(const act_t& cf, bool malt=true) {
+    inline bool exclude_from_all_maps(const act_t& cf,
+                                      bool malt=true) {
         exclude_from_map(MNext, cf);
         if (malt) exclude_from_map(Malt_response, cf);
         exclude_from_map(Mneg_chainsuccession, cf);
@@ -111,6 +112,7 @@ struct model_reducer {
                    const act_t& label);
     bool reduce_r(const act_t& label);
     bool reduce_c(const act_t& absentLabel);
+    bool reduce_p(const act_t& absentLabel);
 };
 
 

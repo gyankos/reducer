@@ -91,10 +91,14 @@ bool model_reducer::reduce_map_to_be_considered(map_inout<act_t, act_t>& map_to_
     return true;
 }
 
-static inline void result_fill(map_inout<act_t,act_t>& map_to_consider,
+static inline void result_fill(
+        std::unordered_map<act_t, char>& Future,
+        map_inout<act_t,act_t>& map_to_consider,
                                declare_cases caso,
                                std::vector<DatalessCases>& result) {
     for (const auto& [a, bSet]: map_to_consider) {
+        if (test_future_condition(Future, a, BINARY_ABSENCE))
+            continue;
         for (const auto& b : bSet)
             result.emplace_back(caso, a, b);
     }
@@ -128,6 +132,7 @@ bool model_reducer::expand_forward_re(const act_t& presentLabel) {
     std::unordered_set<act_t> visited;
     std::unordered_set<act_t> toExtend;
     toExtend.emplace(presentLabel);
+    std::pair<is_negated, act_t> obj{true, -1};
     while (!toExtend.empty()) {
         auto it3 = toExtend.begin();
         auto top = *it3; // Present Label
@@ -158,13 +163,28 @@ bool model_reducer::expand_forward_re(const act_t& presentLabel) {
                         Mresp_existence.erase(str, top);
                 }
             }
+
+            {
+                obj.second = top;
+                auto it = MFuture.find_in(obj);
+                if (it != MFuture.end_in()) {
+                    auto cp = it->second;
+                    for (const auto& to_exclude : cp) {
+                        if (!exclude_from_existance(to_exclude)) return false;
+                        if (!exclude_from_all_maps(to_exclude)) return false;
+                    }
+                }
+            }
+
             // If there are clauses having such existence as activation, then remove all such clauses
             // and reduce those into other existentials in the next run
             auto it = Mresp_existence.find_out(top);
             if (it != Mresp_existence.end_out()) {
                 // Shifting the check to all the previous activations requiring the presence of a label in
                 // the future that shall be, on the other hand, absent.
-                toExtend.insert(it->second.begin(), it->second.end());
+                for (const auto& x : it->second)
+                    if (!test_future_condition(Future, x, BINARY_PRESENCE))
+                        toExtend.insert(x);
                 // Now, removing all the clauses starting from top, after saving all of the consequences
                 Mresp_existence.eraseFirst(top);
             }
@@ -185,6 +205,42 @@ bool model_reducer::reduce_c(const act_t& absentLabel) {
     for (const auto &presence: labels) {
         if (!expand_forward_re(presence))
             return false;
+    }
+    return true;
+}
+
+bool model_reducer::reduce_p(const act_t& absentLabel) {
+    std::unordered_set<act_t> visited;
+    std::unordered_set<act_t> toRemove;
+    toRemove.emplace(absentLabel);
+//    std::pair<is_negated, act_t> is_true{false, -1};
+    while (!toRemove.empty()) {
+        auto it3 = toRemove.begin();
+        auto second = *it3; // Absent Label
+        toRemove.erase(it3);
+        if (visited.emplace(second).second) {
+            // Setting this as an Absence clause. Returns false if this leads to an inconsistency
+            if (!exclude_from_existance(second)) return false;
+            // Removing all the clauses having the absentLabel as an activation condition, as they might
+            // never occur
+            if (!exclude_from_all_maps(second)) return false;
+
+            {
+                auto it = Mprecedence.find_out(absentLabel);
+                if (it != Mprecedence.end_out()) {
+                    toRemove.insert(it->second.begin(), it->second.end());
+                    Mprecedence.erase_out(it);
+                }
+            }
+            {
+                auto it = Mprecedence.find_in(absentLabel);
+                if (it != Mprecedence.end_in()) {
+                    auto cp = it->second;
+                    for (const auto& x : cp)
+                        Mprecedence.erase(absentLabel, x);
+                }
+            }
+        }
     }
     return true;
 }
@@ -213,6 +269,7 @@ bool model_reducer::reduce_r(const act_t& absentLabel) {
     }
     return true;
 }
+
 
 std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& model) {
     clear();
@@ -449,6 +506,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     /// handled
     for (const auto& [k, char_]: Future) {
         if (char_ & BINARY_ABSENCE) {
+            if (!reduce_p(k))
+                return result;
             if (!reduce_cr(MNext, k))
                 return result;
             if (!exclude_from_all_maps(k))
@@ -478,6 +537,14 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 return result;
             continue;
         }
+        // c. if G(a -> X(b)) is also in the model, this nihilates the both clauses to an absence of a
+        if (MNext.erase(clause.first, clause.second)) {
+            if (!exclude_from_existance(clause.first))
+                return result;
+            if (!exclude_from_all_maps(clause.first))
+                return result;
+            continue;
+        }
 
         // d. Adding the NegSuccession only if no further simplification was provided
         auto mfutureA = MFuture.find_out(clause.first);
@@ -489,6 +556,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     /// handled
     for (const auto& [k, char_]: Future) {
         if (char_ & BINARY_ABSENCE) {
+            if (!reduce_p(k))
+                return result;
             if (!reduce_r(k))
                 return result;
             if (!reduce_cr(MNext, k))
@@ -538,6 +607,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     /// handled
     for (const auto& [k, char_]: Future) {
         if (char_ & BINARY_ABSENCE) {
+            if (!reduce_p(k))
+                return result;
             if (!reduce_r(k))
                 return result;
             if (!reduce_cr(MNext, k))
@@ -618,6 +689,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     /// ⑤quater
     for (const auto& [k, char_]: Future) {
         if (char_ & BINARY_ABSENCE) {
+            if (!reduce_p(k))
+                return result;
             if (!reduce_r(k))
                 return result;
             if (!reduce_cr(MNext, k))
@@ -662,7 +735,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         // d. Otherwise, if it is not prescribed to be activated, then I shall declare the
         // clause to be []!a. Also, propagating this absence towards the other clauses being collected
         if (test_future_condition(Future, clause.second, BINARY_ABSENCE)) {
-            if (reduce_cr(Mresp_existence, clause.second))
+            if (reduce_cr(Mresp_existence, clause.first))
                 continue;
             else
                 return result;
@@ -673,6 +746,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     for (const auto& [k, char_]: Future) {
         if (char_ & BINARY_ABSENCE) {
             Mresp_existence.eraseFirst(k);
+            if (!reduce_p(k))
+                return result;
             if (!reduce_r(k))
                 return result;
             if (!reduce_cr(MNext, k))
@@ -736,28 +811,12 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 result.clear();
                 return result;
             }
-//            if (!exclude_from_existance(clause.second)) {
-//                result.clear();
-//                return result;
-//            }
-//            if (!exclude_from_all_maps(clause.second)) {
-//                result.clear();
-//                return result;
-//            }
             continue;
         } else if (test_future_condition(Future, clause.second, BINARY_PRESENCE)) {
             if (!reduce_c(clause.first)) {
                 result.clear();
                 return result;
             }
-//            if (!exclude_from_existance(clause.first)) {
-//                result.clear();
-//                return result;
-//            }
-//            if (!exclude_from_all_maps(clause.first)) {
-//                result.clear();
-//                return result;
-//            }
             continue;
         }
 
@@ -769,14 +828,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 result.clear();
                 return result;
             }
-//            if (!exclude_from_existance(clause.first)) {
-//                result.clear();
-//                return result;
-//            }
-//            if (!exclude_from_all_maps(clause.first)) {
-//                result.clear();
-//                return result;
-//            }
             foundOne = true;
         }
         if (Mresp_existence.erase(clause.second, clause.first)) {
@@ -784,14 +835,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 result.clear();
                 return result;
             }
-//            if (!exclude_from_existance(clause.second)) {
-//                result.clear();
-//                return result;
-//            }
-//            if  (!exclude_from_all_maps(clause.second)) {
-//                result.clear();
-//                return result;
-//            }
             foundOne = true;
         }
         if (foundOne)
@@ -803,6 +846,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     for (const auto& [k, char_]: Future) {
         if (char_ & BINARY_ABSENCE) {
             Mresp_existence.eraseFirst(k);
+            if (!reduce_p(k))
+                return result;
             if (!reduce_r(k))
                 return result;
             if (!reduce_cr(MNext, k))
@@ -815,6 +860,21 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 return result;
         }
     }
+    // f. Precedence
+    for (const auto& [a, bSet] : Mprecedence) {
+        bool isAAbsent = test_future_condition(Future, a, BINARY_ABSENCE);
+        for (const auto& b : bSet) {
+            if (isAAbsent)
+                if (!exclude_from_existance(b))
+                    return result;
+            if (test_future_condition(Future, b, BINARY_ABSENCE))
+                continue;
+            result.emplace_back(Precedence, a, b);
+        }
+    }
+    Mprecedence.clear();
+    DEBUG_ASSERT(Mprecedence.empty());
+
     for (const auto& [a, bSet] : Mnot_coex) {
         if ((test_future_condition(Future, a, BINARY_ABSENCE))) {
             continue;
@@ -935,12 +995,9 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     }
     MFuture.clear();
 
-    // f. Precedence
-    result_fill(Mprecedence, Precedence, result);
-    DEBUG_ASSERT(Mprecedence.empty());
 
     // g. ChainResponse(A,B), adding the remaining ones, which are not ChainSuccessions
-    result_fill(MNext, ChainResponse, result);
+    result_fill(Future, MNext, ChainResponse, result);
     DEBUG_ASSERT(MNext.empty());
 
     // h. Existence(A) and Absence(A)
@@ -953,7 +1010,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     Future.clear();
 
     // i. NegChainSuccession
-    result_fill(Mneg_chainsuccession, NegChainSuccession, result);
+    result_fill(Future, Mneg_chainsuccession, NegChainSuccession, result);
     DEBUG_ASSERT(Mneg_chainsuccession.empty());
 
     // j. RespExistence

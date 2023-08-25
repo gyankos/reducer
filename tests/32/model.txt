@@ -1,0 +1,3 @@
+Existence("b")
+NotCoexistence("a" "b")
+Precedence("a" "b")

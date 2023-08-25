@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <yaucl/functional/assert.h>
+#include "roaring64map.hh"
 
 template <typename T, typename V> struct map_inout {
     std::unordered_map<T, std::unordered_set<V>> out;

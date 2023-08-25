@@ -47,5 +47,9 @@ std::ostream& operator<<(std::ostream& os, const struct DeclareStraightforwardPr
     if (d.to_print == nullptr)
         return  os << "nullptr";
     else
-        return os << magic_enum::enum_name(d.to_print->casus) << "(" << std::quoted(d.bijection.getValue(d.to_print->left)) << " " << ((d.to_print->right==(size_t)-1) ? std::quoted(std::string("")) : std::quoted(d.bijection.getValue(d.to_print->right))) << ")";
+        os << magic_enum::enum_name(d.to_print->casus) << "(" << std::quoted(d.bijection.getValue(d.to_print->left)) << "";
+     if (d.to_print->right==(size_t)-1)
+         return os << ")";
+     else
+         return os << " " << ( std::quoted(d.bijection.getValue(d.to_print->right))) << ")";
 }

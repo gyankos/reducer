@@ -432,7 +432,7 @@ void to_automaton(const ltlf& f,
     }
 
     auto result = minimizeDFA(g);
-    result.dot(std::cout, false);
+//    result.dot(std::cout, false);
 
 }
 
