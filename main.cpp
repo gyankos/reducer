@@ -47,15 +47,20 @@ void to_automaton_example() {
 int reducing() {
     std::ifstream file{"/home/giacomo/model_example.txt"};
     std::cout << "Initial model:" << std::endl;
-    auto M = streamDeclare(file);
-    for (const auto& clause : M)
-        std::cout << clause << std::endl;
+    yaucl::structures::any_to_uint_bimap<std::string> bijection;
+    auto M = streamDeclare(file, bijection);
+    DeclareStraightforwardPrinter printer{bijection};
+    for (const auto& clause : M) {
+        printer.to_print = &clause;
+        std::cout << printer << std::endl;
+    }
     std::cout << std::endl << "~~~~~~~~~~~~~~~~~~~~~~" << std::endl << std::endl;
     std::cout << "Final model:" << std::endl;
     auto v = model_reducer{}.run(M);
-    for (const auto& clause : v)
-        std::cout << clause << std::endl;
-
+    for (const auto& clause : v){
+        printer.to_print = &clause;
+        std::cout << printer << std::endl;
+    }
     return 0;
 }
 

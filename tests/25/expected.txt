@@ -1,2 +1,2 @@
-Absence("a" "")
-Absence("b" "")
+Absence("a")
+Absence("b")

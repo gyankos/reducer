@@ -13,20 +13,26 @@ TEST_CASE( "file-based testing" ) {
                 auto expected = dirEntry.path() / "expected.txt";
                 auto model = dirEntry.path() / "model.txt";
                 std::ifstream file{model};
-                auto M = streamDeclare(file);
-                for (const auto& clause : M)
-                    std::cout << clause << std::endl;
-                std::cout << std::endl << "~~~~~~~~~~~~~~~~~~~~~~" << std::endl << std::endl;
-                std::cout << "Final model:" << std::endl;
-                std::vector<DatalessCases> v = model_reducer{}.run(M);
-                for (const auto& clause : v)
-                    std::cout << clause << std::endl;
-                std::cout << std::endl << "~~~~~~~~~~~~~~~~~~~~~~" << std::endl << std::endl;
+                yaucl::structures::any_to_uint_bimap<std::string> bijection;
+                auto M = streamDeclare(file, bijection);
                 std::ifstream expected_file{expected};
                 std::vector<DatalessCases> E;
                 if (exists(expected)) {
-                    E = streamDeclare(expected_file);
+                    E = streamDeclare(expected_file, bijection);
                 }
+                DeclareStraightforwardPrinter printer{bijection};
+                for (const auto& clause : M) {
+                    printer.to_print = &clause;
+                    std::cout << printer << std::endl;
+                }
+                std::cout << std::endl << "~~~~~~~~~~~~~~~~~~~~~~" << std::endl << std::endl;
+                std::cout << "Final model:" << std::endl;
+                std::vector<DatalessCases> v = model_reducer{}.run(M);
+                for (const auto& clause : v){
+                    printer.to_print = &clause;
+                    std::cout << printer << std::endl;
+                }
+                std::cout << std::endl << "~~~~~~~~~~~~~~~~~~~~~~" << std::endl << std::endl;
                 for (const auto& e : E) {
                     REQUIRE(std::find(v.begin(), v.end(), e) != v.end());
                 }

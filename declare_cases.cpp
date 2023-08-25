@@ -4,7 +4,7 @@
 
 #include "declare_cases.h"
 
-DatalessCases::DatalessCases(declare_cases casus, const std::string &left, const std::string &right) : casus(casus),
+DatalessCases::DatalessCases(declare_cases casus, const size_t &left, const size_t &right) : casus(casus),
                                                                                                        left(left),
                                                                                                        right(right) {}
 #include <stdexcept>
@@ -13,7 +13,7 @@ DatalessCases::DatalessCases(declare_cases casus, const std::string &left, const
 #include <sstream>
 #include <iomanip>
 
-DatalessCases::DatalessCases(const std::string& line) {
+DatalessCases::DatalessCases(const std::string& line, yaucl::structures::any_to_uint_bimap<std::string>& bijection) {
     size_t start_par = line.find('(');
     if (start_par == std::string::npos)
         throw std::runtime_error("ERROR: missing (!");
@@ -29,13 +29,23 @@ DatalessCases::DatalessCases(const std::string& line) {
     casus = castingExpect.value();
     std::string args = line.substr(start_par+1, end_par-start_par-1);
     std::istringstream iss(args);
-    if (!(iss >> std::quoted(left))) {
+    std::string tmp_left, tmp_right;
+    if (!(iss >> std::quoted(tmp_left))) {
         throw std::runtime_error("ERROR: expecting at least one argument!");
+    } else {
+        left = bijection.put(tmp_left).first;
     }
-    iss >> std::quoted(right);
+    if (iss >> std::quoted(tmp_right)) {
+        right = bijection.put(tmp_right).first;
+    } else {
+        right = -1;
+    }
 }
 
 
-std::ostream& operator<<(std::ostream& os, const struct DatalessCases& d) {
-    return os << magic_enum::enum_name(d.casus) << "(" << std::quoted(d.left) << " " << std::quoted(d.right) << ")";
+std::ostream& operator<<(std::ostream& os, const struct DeclareStraightforwardPrinter& d) {
+    if (d.to_print == nullptr)
+        return  os << "nullptr";
+    else
+        return os << magic_enum::enum_name(d.to_print->casus) << "(" << std::quoted(d.bijection.getValue(d.to_print->left)) << " " << ((d.to_print->right==(size_t)-1) ? std::quoted(std::string("")) : std::quoted(d.bijection.getValue(d.to_print->right))) << ")";
 }

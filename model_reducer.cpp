@@ -6,7 +6,7 @@
 #include "model_reducer.h"
 #include "yaucl/graphs/FlexibleFA.h"
 
-static inline bool test_future_condition(const std::unordered_map<std::string, char>& Future, const std::string& label, char condition) {
+static inline bool test_future_condition(const std::unordered_map<act_t, char>& Future, const act_t& label, char condition) {
     auto it = Future.find(label);
     if (it == Future.end()) return false;
     return ((it->second & condition) == condition);
@@ -39,9 +39,9 @@ bool dfsFirstLoopVisit(roaring::Roaring64Map& visited,
     return false;
 }
 
-bool model_reducer::reduce_map_to_be_considered(map_inout<std::string, std::string>& map_to_be_considered, bool alsoPassedMap) {
-    FlexibleFA<std::string, char> crg;
-    std::unordered_map<std::string, size_t> node_map;
+bool model_reducer::reduce_map_to_be_considered(map_inout<act_t, act_t>& map_to_be_considered, bool alsoPassedMap) {
+    FlexibleFA<act_t, char> crg;
+    std::unordered_map<act_t, size_t> node_map;
     for (const auto& [a, targets] : map_to_be_considered) {
         // If the activation shall never happen, the clause is never triggered for checking
         if (test_future_condition(Future, a, BINARY_ABSENCE)) continue;
@@ -91,7 +91,7 @@ bool model_reducer::reduce_map_to_be_considered(map_inout<std::string, std::stri
     return true;
 }
 
-static inline void result_fill(map_inout<std::string, std::string>& map_to_consider,
+static inline void result_fill(map_inout<act_t,act_t>& map_to_consider,
                                declare_cases caso,
                                std::vector<DatalessCases>& result) {
     for (const auto& [a, bSet]: map_to_consider) {
@@ -102,10 +102,10 @@ static inline void result_fill(map_inout<std::string, std::string>& map_to_consi
 }
 
 
-bool model_reducer::reduce_cr(map_inout<std::string, std::string>& MN,
-                                                    const std::string& absentLabel) {
-    std::unordered_set<std::string> visited;
-    std::unordered_set<std::string> toRemove;
+bool model_reducer::reduce_cr(map_inout<act_t,act_t>& MN,
+                                                    const act_t& absentLabel) {
+    std::unordered_set<act_t> visited;
+    std::unordered_set<act_t> toRemove;
     toRemove.emplace(absentLabel);
     while (!toRemove.empty()) {
         auto it3 = toRemove.begin();
@@ -124,9 +124,9 @@ bool model_reducer::reduce_cr(map_inout<std::string, std::string>& MN,
     return true;
 }
 
-bool model_reducer::expand_forward_re(const std::string& presentLabel) {
-    std::unordered_set<std::string> visited;
-    std::unordered_set<std::string> toExtend;
+bool model_reducer::expand_forward_re(const act_t& presentLabel) {
+    std::unordered_set<act_t> visited;
+    std::unordered_set<act_t> toExtend;
     toExtend.emplace(presentLabel);
     while (!toExtend.empty()) {
         auto it3 = toExtend.begin();
@@ -173,8 +173,8 @@ bool model_reducer::expand_forward_re(const std::string& presentLabel) {
     return true;
 }
 
-bool model_reducer::reduce_c(const std::string& absentLabel) {
-    std::unordered_set<std::string> labels;
+bool model_reducer::reduce_c(const act_t& absentLabel) {
+    std::unordered_set<act_t> labels;
     auto it = Mchoice.find_out(absentLabel);
     if (it != Mchoice.end_out())
         labels = it->second;
@@ -189,11 +189,11 @@ bool model_reducer::reduce_c(const std::string& absentLabel) {
     return true;
 }
 
-bool model_reducer::reduce_r(const std::string& absentLabel) {
-    std::unordered_set<std::string> visited;
-    std::unordered_set<std::string> toRemove;
+bool model_reducer::reduce_r(const act_t& absentLabel) {
+    std::unordered_set<act_t> visited;
+    std::unordered_set<act_t> toRemove;
     toRemove.emplace(absentLabel);
-    std::pair<is_negated, std::string> is_true{false, ""};
+    std::pair<is_negated, act_t> is_true{false, -1};
     while (!toRemove.empty()) {
         auto it3 = toRemove.begin();
         is_true.second = *it3; // Absent Label
@@ -458,7 +458,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     response.clear();
 
     /// ⑥ Detecting NegSuccession: G(a -> G(!b))
-    std::pair<is_negated, std::string> is_positive{false, ""};
+    std::pair<is_negated, act_t> is_positive{false, -1};
     for (const auto& clause : neg_succession) {
         // a. Not considering the clause if we now that the activation condition shall never occur.
         //    Similarly, if we already know that the second shall never occur, then we can ignore the
@@ -507,7 +507,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         for (const auto& b : bSet)
             alt_response.emplace_back(a, b);
     Malt_response.clear();
-    std::pair<is_negated, std::string> is_neg{true, ""};
+    std::pair<is_negated, act_t> is_neg{true, -1};
     for (const auto& clause : alt_response) {
         // a. Not considering the clause if we now that the activation condition shall never occur
         if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
@@ -582,7 +582,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     // b. Dealing with Response requires to remove the information for NegSuccession first,
     // while removing the not NegSuccession information from the map
     {
-        map_inout<std::string, std::string> intermediate;
+        map_inout<act_t, act_t> intermediate;
         for (auto it2 = MFuture.begin_out(); it2 != MFuture.end_out(); ) {
             const auto& k = it2->first;
             auto& vals = it2->second;
@@ -946,9 +946,9 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     // h. Existence(A) and Absence(A)
     for (const auto& [act, char_] : Future) {
         if ((char_ & BINARY_PRESENCE))
-            result.emplace_back(Existence, act, "");
+            result.emplace_back(Existence, act, -1);
         else if ((char_ & BINARY_ABSENCE))
-            result.emplace_back(Absence, act, "");
+            result.emplace_back(Absence, act, -1);
     }
     Future.clear();
 
@@ -987,6 +987,6 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     /// This is very likely to be an always-true model, which shall not be even considered for specification
     /// checking
     if (result.empty())
-        result.emplace_back(TRUTH, "", "");
+        result.emplace_back(TRUTH, -1, -1);
     return result;
 }

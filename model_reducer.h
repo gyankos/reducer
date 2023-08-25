@@ -14,23 +14,23 @@
 #include "declare_cases.h"
 #include "map_inout.h"
 using is_negated = bool;
-
+using act_t = size_t;
 
 #define BINARY_PRESENCE     (0b01)
 #define BINARY_ABSENCE    (0b10)
 #define BINARY_EXCL     (0b11)
 
 template <typename T>
-static inline void exclude_from_map(map_inout<std::string, T>& map, const std::string& elem) {
+static inline void exclude_from_map(map_inout<act_t, T>& map, const act_t& elem) {
     auto it = map.find_out(elem);
     if (it != map.end_out()) {
         map.erase_out(it);
     }
 }
 
-static inline bool exclude_from_precedence_map(map_inout<std::string, std::string>& map,
-                                               const std::string& elem,
-                                               std::unordered_map<std::string, char>& Future) {
+static inline bool exclude_from_precedence_map(map_inout<act_t, act_t>& map,
+                                               const act_t& elem,
+                                               std::unordered_map<act_t, char>& Future) {
     auto it = map.find_out(elem);
     if (it != map.end_out()) {
         for (const auto& b : it->second) {
@@ -44,11 +44,11 @@ static inline bool exclude_from_precedence_map(map_inout<std::string, std::strin
 }
 
 struct model_reducer {
-    std::unordered_map<std::string, char> Future;
-    std::vector<std::pair<std::string,std::string>> not_coexistence, chain_response, response, choice, neg_succession, resp_existence, chain_precedence, alt_response;
+    std::unordered_map<act_t, char> Future;
+    std::vector<std::pair<act_t,act_t>> not_coexistence, chain_response, response, choice, neg_succession, resp_existence, chain_precedence, alt_response;
 
-    map_inout<std::string, std::pair<is_negated, std::string>> MFuture;
-    map_inout<std::string, std::string> Malt_response,
+    map_inout<act_t, std::pair<is_negated, act_t>> MFuture;
+    map_inout<act_t, act_t> Malt_response,
             Mprecedence,
             MNext,
             Mneg_chainsuccession,
@@ -60,7 +60,7 @@ struct model_reducer {
     //,
 //            MResp_exsistence;
 
-    inline bool exclude_from_existance(const std::string& cf) { // SR1
+    inline bool exclude_from_existance(const act_t& cf) { // SR1
         auto it2 = Future.emplace(cf, BINARY_ABSENCE);
         if ((!it2.second) && ((it2.first->second & BINARY_ABSENCE) != BINARY_ABSENCE)) {
             return false;  /* Inconsistent model, as both clauses coexist */
@@ -68,7 +68,7 @@ struct model_reducer {
         return true;
     }
 
-    inline bool allow_existance(const std::string& cf) { // SR1
+    inline bool allow_existance(const act_t& cf) { // SR1
         auto it = Future.emplace(cf, BINARY_PRESENCE);
         if ((!it.second) && ((it.first->second & BINARY_PRESENCE) != BINARY_PRESENCE)) {
             return false;  // Inconsistent model, as both clauses coexist
@@ -76,7 +76,7 @@ struct model_reducer {
         return true;
     }
 
-    inline bool exclude_from_all_maps(const std::string& cf, bool malt=true) {
+    inline bool exclude_from_all_maps(const act_t& cf, bool malt=true) {
         exclude_from_map(MNext, cf);
         if (malt) exclude_from_map(Malt_response, cf);
         exclude_from_map(Mneg_chainsuccession, cf);
@@ -104,13 +104,13 @@ struct model_reducer {
         chain_precedence.clear();
         Malt_response.clear();
     }
-    bool expand_forward_re(const std::string& presentLabel);
-    bool reduce_map_to_be_considered(map_inout<std::string, std::string>& to_reduce,  bool alsoPassedMap = false);
+    bool expand_forward_re(const act_t& presentLabel);
+    bool reduce_map_to_be_considered(map_inout<act_t, act_t>& to_reduce,  bool alsoPassedMap = false);
     std::vector<DatalessCases> run(const std::vector<DatalessCases>& model);
-    bool reduce_cr(map_inout<std::string, std::string>& MN,
-                   const std::string& label);
-    bool reduce_r(const std::string& label);
-    bool reduce_c(const std::string& absentLabel);
+    bool reduce_cr(map_inout<act_t, act_t>& MN,
+                   const act_t& label);
+    bool reduce_r(const act_t& label);
+    bool reduce_c(const act_t& absentLabel);
 };
 
 
