@@ -1,0 +1,2 @@
+Choice("a" "b")
+NotCoexistence("b" "a")

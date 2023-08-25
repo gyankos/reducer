@@ -1,0 +1,4 @@
+Absence("a" "")
+Choice("b" "c")
+Choice("a" "b")
+Choice("c" "d")

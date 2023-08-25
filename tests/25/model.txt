@@ -1,0 +1,5 @@
+Succession("a" "a")
+Precedence("b" "b")
+Response("c" "c")
+AltResponse("a" "a")
+AltSuccession("b" "b")

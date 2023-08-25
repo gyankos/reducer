@@ -1,0 +1,6 @@
+RespExistence("b" "c")
+Choice("a" "b")
+Absence("b" "")
+Choice("b" "a")
+Choice("c" "d")
+Choice("e" "f")

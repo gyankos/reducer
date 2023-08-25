@@ -54,7 +54,10 @@ struct model_reducer {
             Mneg_chainsuccession,
             Malt_precedence,
             Mresp_existence,
-            Mchoice;//,
+            Mchoice,
+            Mnot_coex;
+
+    //,
 //            MResp_exsistence;
 
     inline bool exclude_from_existance(const std::string& cf) { // SR1
@@ -80,6 +83,12 @@ struct model_reducer {
         exclude_from_map(MNext, cf);
         exclude_from_map(MFuture, cf);
         exclude_from_map(Mresp_existence, cf);
+        auto excludeChoiceLeft = Mchoice.eraseFirst(cf, true);
+        auto excludeChoiceRight = Mchoice.eraseSecond(cf, true);
+        for (const auto& x : excludeChoiceLeft)
+            if (!allow_existance(x)) return false;
+        for (const auto& x : excludeChoiceRight)
+            if (!allow_existance(x)) return false;
         return (!exclude_from_precedence_map(Mprecedence, cf, Future));
     }
 
@@ -95,12 +104,13 @@ struct model_reducer {
         chain_precedence.clear();
         Malt_response.clear();
     }
-    bool reduce_forward_re(const std::string& absentLabel);
+    bool expand_forward_re(const std::string& presentLabel);
     bool reduce_map_to_be_considered(map_inout<std::string, std::string>& to_reduce,  bool alsoPassedMap = false);
     std::vector<DatalessCases> run(const std::vector<DatalessCases>& model);
     bool reduce_cr(map_inout<std::string, std::string>& MN,
                    const std::string& label);
     bool reduce_r(const std::string& label);
+    bool reduce_c(const std::string& absentLabel);
 };
 
 

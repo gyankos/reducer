@@ -124,13 +124,13 @@ bool model_reducer::reduce_cr(map_inout<std::string, std::string>& MN,
     return true;
 }
 
-bool model_reducer::reduce_forward_re(const std::string& presentLabel) {
+bool model_reducer::expand_forward_re(const std::string& presentLabel) {
     std::unordered_set<std::string> visited;
     std::unordered_set<std::string> toExtend;
     toExtend.emplace(presentLabel);
     while (!toExtend.empty()) {
         auto it3 = toExtend.begin();
-        auto top = *it3; // Absent Label
+        auto top = *it3; // Present Label
         toExtend.erase(it3);
         if (visited.emplace(top).second) {
             // If the novel existance leads to an inconsistent model, terminate
@@ -169,6 +169,22 @@ bool model_reducer::reduce_forward_re(const std::string& presentLabel) {
                 Mresp_existence.eraseFirst(top);
             }
         }
+    }
+    return true;
+}
+
+bool model_reducer::reduce_c(const std::string& absentLabel) {
+    std::unordered_set<std::string> labels;
+    auto it = Mchoice.find_out(absentLabel);
+    if (it != Mchoice.end_out())
+        labels = it->second;
+    if (!exclude_from_existance(absentLabel))
+        return false;
+    if (!exclude_from_all_maps(absentLabel))
+        return false;
+    for (const auto &presence: labels) {
+        if (!expand_forward_re(presence))
+            return false;
     }
     return true;
 }
@@ -261,11 +277,13 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 break;
 
             case Response:
-                response.emplace_back(clause.left, clause.right);
+                if (clause.left != clause.right)
+                    response.emplace_back(clause.left, clause.right);
                 break;
 
             case Precedence:
-                Mprecedence.add(clause.left, clause.right);
+                if (clause.left != clause.right)
+                    Mprecedence.add(clause.left, clause.right);
                 break;
 
             case ChainResponse:
@@ -283,8 +301,10 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 break;
 
             case Succession:
-                response.emplace_back(clause.left, clause.right);
-                Mprecedence.add(clause.left, clause.right);
+                if (clause.left != clause.right) {
+                    response.emplace_back(clause.left, clause.right);
+                    Mprecedence.add(clause.left, clause.right);
+                }
                 break;
 
             case AltPrecedence:
@@ -293,15 +313,27 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 break;
 
             case AltSuccession:
-                response.emplace_back(clause.left, clause.right);
-                Mprecedence.add(clause.left, clause.right);
-                Malt_precedence.add(clause.right, clause.left); // This only regards G(b → X(¬bW a))
-                Malt_response.add(clause.left, clause.right);
+                if (clause.left != clause.right) {
+                    response.emplace_back(clause.left, clause.right);
+                    Mprecedence.add(clause.left, clause.right);
+                    Malt_precedence.add(clause.right, clause.left); // This only regards G(b → X(¬bW a))
+                    Malt_response.add(clause.left, clause.right);
+                } else {
+                    if (!exclude_from_existance(clause.left))
+                        return result;
+                    continue;
+                }
                 break;
 
             case AltResponse:
-                response.emplace_back(clause.left, clause.right);
-                Malt_response.add(clause.left, clause.right);
+                if (clause.left != clause.right) {
+                    response.emplace_back(clause.left, clause.right);
+                    Malt_response.add(clause.left, clause.right);
+                } else {
+                    if (!exclude_from_existance(clause.left))
+                        return result;
+                    continue;
+                }
                 break;
 
             case NegSuccession:
@@ -419,6 +451,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         if (char_ & BINARY_ABSENCE) {
             if (!reduce_cr(MNext, k))
                 return result;
+            if (!exclude_from_all_maps(k))
+                return result;
         }
     }
     response.clear();
@@ -458,6 +492,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             if (!reduce_r(k))
                 return result;
             if (!reduce_cr(MNext, k))
+                return result;
+            if (!exclude_from_all_maps(k))
                 return result;
         }
     }
@@ -507,6 +543,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             if (!reduce_cr(MNext, k))
                 return result;
             if (!reduce_cr(Malt_response, k))
+                return result;
+            if (!exclude_from_all_maps(k))
                 return result;
         }
     }
@@ -586,6 +624,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 return result;
             if (!reduce_cr(Malt_response, k))
                 return result;
+            if (!exclude_from_all_maps(k))
+                return result;
         }
     }
 
@@ -606,7 +646,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 // return if this leads to an inconsistent model, which should have been detected in the
                 // previous branch if any, but this might trigger other inconsistencies that were not
                 // detectable before
-                if (!reduce_forward_re(clause.second))
+                if (!expand_forward_re(clause.second))
                     return result;
                 // Discarding adding the clause here
                 continue;
@@ -632,11 +672,14 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     resp_existence.clear();
     for (const auto& [k, char_]: Future) {
         if (char_ & BINARY_ABSENCE) {
+            Mresp_existence.eraseFirst(k);
             if (!reduce_r(k))
                 return result;
             if (!reduce_cr(MNext, k))
                 return result;
             if (!reduce_cr(Malt_response, k))
+                return result;
+            if (!exclude_from_all_maps(k))
                 return result;
         }
     }
@@ -658,12 +701,12 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             // ... otherwise, if just one of the two is absent, then this boils down to F(a)
             // While doing so, further reducing the choices
             if (leftAbsent) {
-                if (!reduce_forward_re(clause.second)) {
+                if (!expand_forward_re(clause.second)) {
                     return result; // Inconsistent empty model
                 } else
                     continue; // not adding the clause!
         } else if (rightAbsent) {
-                if (!reduce_forward_re(clause.first)) {
+                if (!expand_forward_re(clause.first)) {
                     return result; // Inconsistent empty model
                 } else
                     continue; // not adding the clause!
@@ -677,25 +720,124 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
 
     /// ⑫  Detecting inconsistent models through not_coexistence
     for (const auto& clause : not_coexistence) {
+        // a. if either one of them is still marked as absent, then I can ignore adding the clause
+        if ((test_future_condition(Future, clause.first, BINARY_ABSENCE)) ||
+            (test_future_condition(Future, clause.second, BINARY_ABSENCE))) {
+            continue;
+        }
+
         // a. If both events are present, then the model is inconsistent
         if ((test_future_condition(Future, clause.first, BINARY_PRESENCE)) &&
             (test_future_condition(Future, clause.second, BINARY_PRESENCE))) {
             result.clear();
             return result; // Inconsistent model, as both clauses coexist.
+        } else if (test_future_condition(Future, clause.first, BINARY_PRESENCE)) {
+            if (!reduce_c(clause.second)) {
+                result.clear();
+                return result;
+            }
+//            if (!exclude_from_existance(clause.second)) {
+//                result.clear();
+//                return result;
+//            }
+//            if (!exclude_from_all_maps(clause.second)) {
+//                result.clear();
+//                return result;
+//            }
+            continue;
+        } else if (test_future_condition(Future, clause.second, BINARY_PRESENCE)) {
+            if (!reduce_c(clause.first)) {
+                result.clear();
+                return result;
+            }
+//            if (!exclude_from_existance(clause.first)) {
+//                result.clear();
+//                return result;
+//            }
+//            if (!exclude_from_all_maps(clause.first)) {
+//                result.clear();
+//                return result;
+//            }
+            continue;
         }
 
-        // I can start directly populate the model, at this stage
-        if (Mchoice.erase(clause.first, clause.second) ||
-            Mchoice.erase(clause.second, clause.first)) {
-            result.emplace_back(ExclChoice,
-                                std::min(clause.first, clause.second),
-                                std::max(clause.second, clause.first));
-        } else
-            result.emplace_back(NotCoexistence,
-                                std::min(clause.first, clause.second),
-                                std::max(clause.second, clause.first));
+        // b. If I also have F(a)->F(b), then with !(F(a)&F(b)) this prescribes that
+        // G(!a)
+        bool foundOne = false;
+        if (Mresp_existence.erase(clause.first, clause.second)) {
+            if (!reduce_c(clause.first)) {
+                result.clear();
+                return result;
+            }
+//            if (!exclude_from_existance(clause.first)) {
+//                result.clear();
+//                return result;
+//            }
+//            if (!exclude_from_all_maps(clause.first)) {
+//                result.clear();
+//                return result;
+//            }
+            foundOne = true;
+        }
+        if (Mresp_existence.erase(clause.second, clause.first)) {
+            if (!reduce_c(clause.second)) {
+                result.clear();
+                return result;
+            }
+//            if (!exclude_from_existance(clause.second)) {
+//                result.clear();
+//                return result;
+//            }
+//            if  (!exclude_from_all_maps(clause.second)) {
+//                result.clear();
+//                return result;
+//            }
+            foundOne = true;
+        }
+        if (foundOne)
+            continue;
+
+        Mnot_coex.add(clause.first, clause.second);
     }
     not_coexistence.clear();
+    for (const auto& [k, char_]: Future) {
+        if (char_ & BINARY_ABSENCE) {
+            Mresp_existence.eraseFirst(k);
+            if (!reduce_r(k))
+                return result;
+            if (!reduce_cr(MNext, k))
+                return result;
+            if (!reduce_cr(Malt_response, k))
+                return result;
+            if (!reduce_c(k))
+                return result;
+            if (!exclude_from_all_maps(k))
+                return result;
+        }
+    }
+    for (const auto& [a, bSet] : Mnot_coex) {
+        if ((test_future_condition(Future, a, BINARY_ABSENCE))) {
+            continue;
+        }
+        for (const auto& b : bSet) {
+            if (test_future_condition(Future, b, BINARY_ABSENCE))
+                continue;
+
+            // c. I can start directly populate the model, at this stage
+            bool eraseLeft = Mchoice.erase(a, b);
+            bool eraseRight = Mchoice.erase(b, a);
+            if (eraseLeft || eraseRight) {
+                result.emplace_back(ExclChoice,
+                                    std::min(a, b),
+                                    std::max(a, b));
+            } else
+                result.emplace_back(NotCoexistence,
+                                    std::min(a, b),
+                                    std::max(a, b));
+        }
+
+    }
+    Mnot_coex.clear();
 
     DEBUG_ASSERT(not_coexistence.empty());
     DEBUG_ASSERT(chain_response.empty());
@@ -703,11 +845,12 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
     DEBUG_ASSERT(resp_existence.empty());
     DEBUG_ASSERT(choice.empty());
     DEBUG_ASSERT(choice.empty());
-    DEBUG_ASSERT(resp_existence.empty());
 
     /// ⑬ Now, adding all the results to the model
     // a. ChainPrecedence(B,A)
     for (const auto& clause : chain_precedence) {
+        if (test_future_condition(Future, clause.first, BINARY_ABSENCE))
+            continue;
         // In particular, if there is also a ChainResponse(A,B), then return a ChainSuccession instead!
         if (MNext.erase(clause.second, clause.first)) {
             result.emplace_back(ChainSuccession, clause.second, clause.first);
@@ -731,19 +874,27 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                         throw std::runtime_error("LOGICAL ERROR (3)!");
                     continue;
                 } else {
-                    auto it = Mprecedence.find_out(a);
-                    if (it != Mprecedence.end_out()) {
-                        if (it->second.contains(b)) {
-                            if (Malt_response.erase(a,b))
-                                result.emplace_back(AltSuccession, a, b);
-                            else
-                                result.emplace_back(AltPrecedence, a, b);
-                        } else {
-                            throw std::runtime_error("LOGICAL ERROR (2)!");
-                        }
+                    if (Mprecedence.contains(a,b)) {
+                        if (Malt_response.erase(a,b))
+                            result.emplace_back(AltSuccession, a, b);
+                        else
+                            result.emplace_back(AltPrecedence, a, b);
                     } else {
                         throw std::runtime_error("LOGICAL ERROR (1)!");
                     }
+//                    auto it = Mprecedence.find_out(a);
+//                    if (it != Mprecedence.end_out()) {
+//                        if (it->second.contains(b)) {
+//                            if (Malt_response.erase(a,b))
+//                                result.emplace_back(AltSuccession, a, b);
+//                            else
+//                                result.emplace_back(AltPrecedence, a, b);
+//                        } else {
+//                            throw std::runtime_error("LOGICAL ERROR (2)!");
+//                        }
+//                    } else {
+//                        throw std::runtime_error("LOGICAL ERROR (1)!");
+//                    }
                 }
 
             }
@@ -753,6 +904,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
 
     // d. Dealing with the remaining AltResponse(A,B)
     for (const auto& [a, bSet]: Malt_response) {
+        if (test_future_condition(Future, a, BINARY_ABSENCE))
+            continue;
         for (const auto& b : bSet) {
             result.emplace_back(AltResponse, a, b);
         }
@@ -761,10 +914,12 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
 
     // e. Response(A,B)
     for (const auto& [a, bSet]: MFuture) {
-        if (test_future_condition(Future, a, BINARY_ABSENCE)) continue;
+        if (test_future_condition(Future, a, BINARY_ABSENCE))
+            continue;
         for (const auto& [negated, b] : bSet) {
             if (negated) {
-                result.emplace_back(NegSuccession, a, b);
+                if (!test_future_condition(Future, b, BINARY_ABSENCE))
+                    result.emplace_back(NegSuccession, a, b);
             } else {
                 // Returning G(A -> F(b)) iff. G(A -> X(b)) is not in the model
                 if (!MNext.contains(a, b)) {
@@ -803,6 +958,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
 
     // j. RespExistence
     for (const auto& [a, bSet]: Mresp_existence) {
+        if (test_future_condition(Future, a, BINARY_ABSENCE))
+            continue;
         for (const auto& b : bSet) {
             if (Mresp_existence.contains(b,a)) {
                 if (a<b)

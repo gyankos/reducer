@@ -1,0 +1,5 @@
+NegSuccession("a" "b")
+Absence("b" "")
+NegSuccession("a" "c")
+NegSuccession("c" "d")
+Absence("c" "")

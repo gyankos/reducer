@@ -38,18 +38,42 @@ template <typename T, typename V> struct map_inout {
         } else
             return out.end();
     }
-    bool eraseFirst(const T& first) {
+    std::unordered_set<V> eraseFirst(const T& first, bool clear_also_seconds = false) {
         auto it = find_out(first);
         if (it != end_out()) {
             auto cp = it->second;
-            for (const auto& v : cp) {
-                auto it2 = find_out(v);
-                DEBUG_ASSERT(it2 != end_out());
-                it2->second.erase(first);
+            if (clear_also_seconds) {
+                for (const auto& v : cp) {
+                    auto it2 = find_in(v);
+                    DEBUG_ASSERT(it2 != end_in());
+                    it2->second.erase(first);
+                    if (it2->second.empty())
+                        in.erase(it2);
+                }
             }
             out.erase(it);
+            return cp;
         }
-        return false;
+        return {};
+    }
+
+    std::unordered_set<T> eraseSecond(const V& first, bool  clear_also_firsts = false) {
+        auto it = find_in(first);
+        if (it != end_in()) {
+            auto cp = it->second;
+            if (clear_also_firsts) {
+                for (const auto& v : cp) {
+                    auto it2 = find_out(v);
+                    DEBUG_ASSERT(it2 != end_out());
+                    it2->second.erase(first);
+                    if (it2->second.empty())
+                        out.erase(it2);
+                }
+            }
+            in.erase(it);
+            return cp;
+        }
+        return {};
     }
 
     bool erase(const T& first, const V& second) {
