@@ -1,0 +1,4 @@
+AltPrecedence("a" "b")
+Precedence("b" "c")
+Precedence("d" "a")
+Precedence("c" "d")

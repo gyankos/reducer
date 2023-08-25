@@ -524,6 +524,8 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
             if (MNext.contains(it->first, *it2)) {
                 it2 = it->second.erase(it2);
                 continue;
+            } else {
+                it2++;
             }
         }
     }
@@ -724,19 +726,26 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
         } else {
             //...Or if still the precedence holds. Still, we expect the precedence to be there o.O
             for (const auto& a : aSet) {
-                auto it = Mprecedence.find_out(a);
-                if (it != Mprecedence.end_out()) {
-                    if (it->second.contains(b)) {
-                        if (Malt_response.erase(a,b))
-                            result.emplace_back(AltSuccession, a, b);
-                        else
-                            result.emplace_back(AltPrecedence, a, b);
-                    } else {
-                        throw std::runtime_error("LOGICAL ERROR (2)!");
-                    }
+                if (test_future_condition(Future, a, BINARY_ABSENCE)) {
+                    if(!test_future_condition(Future, b, BINARY_ABSENCE))
+                        throw std::runtime_error("LOGICAL ERROR (3)!");
+                    continue;
                 } else {
-                    throw std::runtime_error("LOGICAL ERROR (1)!");
+                    auto it = Mprecedence.find_out(a);
+                    if (it != Mprecedence.end_out()) {
+                        if (it->second.contains(b)) {
+                            if (Malt_response.erase(a,b))
+                                result.emplace_back(AltSuccession, a, b);
+                            else
+                                result.emplace_back(AltPrecedence, a, b);
+                        } else {
+                            throw std::runtime_error("LOGICAL ERROR (2)!");
+                        }
+                    } else {
+                        throw std::runtime_error("LOGICAL ERROR (1)!");
+                    }
                 }
+
             }
         }
     }
