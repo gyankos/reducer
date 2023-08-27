@@ -11,31 +11,31 @@ const ltlf ltlf::ltlf_end = ltlf::globally_(ltlf_false);
 std::ostream& operator<<(std::ostream& os, const ltlf &ltlf) {
     switch (ltlf.t) {
         case ltlf::TRUE:
-            return os << "⊤";
+            return os << "tt";
         case ltlf::FALSE:
-            return os << "⊥";
+            return os << "ff";
         case ltlf::END:
-            return os << "!";
+            return os << "!(X(true))";
         case ltlf::UNTIL:
             return os << ("(") << (ltlf.children.at(0)) << ") U (" << ltlf.children.at(1) << ")";
         case ltlf::GLOBALLY:
-            return os << "□(" << ltlf.children.at(0) << ")";
+            return os << "G(" << ltlf.children.at(0) << ")";
         case ltlf::FUTURE:
-            return os << "◊(" << ltlf.children.at(0) << ")";
+            return os << "F(" << ltlf.children.at(0) << ")";
         case ltlf::ATOM:
             return os << ltlf.atom;
         case ltlf::NOT:
-            return os << "¬" << "(" << ltlf.children.at(0) << ")";
+            return os << "!" << "(" << ltlf.children.at(0) << ")";
         case ltlf::AND:
-            return os << ("(") << (ltlf.children.at(0)) << ") ∧ (" << ltlf.children.at(1) << ")";
+            return os << ("(") << (ltlf.children.at(0)) << ") & (" << ltlf.children.at(1) << ")";
         case ltlf::OR:
-            return os << ("(") << (ltlf.children.at(0)) << ") ∨ (" << ltlf.children.at(1) << ")";
+            return os << ("(") << (ltlf.children.at(0)) << ") | (" << ltlf.children.at(1) << ")";
         case ltlf::NEXT:
-            return os << "∘(" << ltlf.children.at(0) << ")";
+            return os << "X(" << ltlf.children.at(0) << ")";
         case ltlf::WEAKNEXT:
-            return os << ".(" << ltlf.children.at(0) << ")";
+            return os << "WX(" << ltlf.children.at(0) << ")";
         case ltlf::RELEASE:
-            return os << ("(") << (ltlf.children.at(0)) << ") ℜ (" << ltlf.children.at(1) << ")";
+            return os << ("(") << (ltlf.children.at(0)) << ") R (" << ltlf.children.at(1) << ")";
     }
     return os;
 }

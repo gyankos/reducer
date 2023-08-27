@@ -1,3 +1,18 @@
 [submodule "submodules/yaucl"]
 	path = submodules/yaucl
 	url = git@github.com:datagramdb/yaucl.git
+[submodule "submodules/logaut"]
+	path = submodules/logaut
+	url = https://github.com/whitemech/logaut
+[submodule "submodules/lydia"]
+	path = submodules/lydia
+	url = https://github.com/whitemech/lydia
+[submodule "submodules/cudd"]
+	path = submodules/cudd
+	url = https://github.com/whitemech/cudd/
+[submodule "submodules/mona"]
+	path = submodules/mona
+	url = https://github.com/whitemech/MONA/
+[submodule "submodules/syft"]
+	path = submodules/syft
+	url = https://github.com/whitemech/Syft.git

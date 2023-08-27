@@ -1,0 +1,8 @@
+//
+// Created by giacomo on 26/08/23.
+//
+
+#ifndef REDUCER_DECLARE_TO_POWERDECL_H
+#define REDUCER_DECLARE_TO_POWERDECL_H
+
+#endif //REDUCER_DECLARE_TO_POWERDECL_H
