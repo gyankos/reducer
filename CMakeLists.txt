@@ -11,6 +11,9 @@ FetchContent_Declare(
         GIT_TAG        v3.0.1 # or a later release
 )
 FetchContent_MakeAvailable(Catch2)
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+include(CTest)
+include(Catch)
 
 include_directories(include)
 add_subdirectory(submodules/yaucl)
@@ -27,3 +30,4 @@ target_link_libraries(reducer yaucl_hashing roaring antlr4_static yaucl_graph re
 
 add_executable(tests tests.cpp)
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain reducerlib)
+catch_discover_tests(tests)
