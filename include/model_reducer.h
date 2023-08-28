@@ -11,8 +11,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <set>
-#include "declare_cases.h"
-#include "map_inout.h"
+#include <declare_cases.h>
+#include <map_inout.h>
 using is_negated = bool;
 using act_t = size_t;
 

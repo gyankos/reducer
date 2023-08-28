@@ -14,19 +14,26 @@ cd ../mona
 ./configure && make && sudo make install
 cd ../syft
 git checkout "v0.1.1"
-mkdir build && cd build
+mkdir build
+cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j
 sudo make install
-cd ../lydia
+cd ../../lydia
 git submodule update --init --recursive
-mkdir build && cd build
+mkdir build
+cd build
 cmake ..
 make -j4 lydia lydia-bin
 sudo make install lydia lydia-bin
 make clean
 cd ..
 rm -rf build
+cd ../aaltaf
+mkdir cmake-build-release
+cd cmake-build-release
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j
 cd ../syft/build
 make clean
 cd ..

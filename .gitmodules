@@ -16,3 +16,9 @@
 [submodule "submodules/syft"]
 	path = submodules/syft
 	url = https://github.com/whitemech/Syft.git
+[submodule "submodules/args"]
+	path = submodules/args
+	url = https://github.com/Taywee/args
+[submodule "submodules/aaltaf"]
+	path = submodules/aaltaf
+	url = https://github.com/jackbergus/aaltaf

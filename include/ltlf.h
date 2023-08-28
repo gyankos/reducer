@@ -12,13 +12,13 @@
 #include <sstream>
 #include <unordered_map>
 #include <stdexcept>
-#include "my_unordered_set.h"
+#include <my_unordered_set.h>
 
 #include <vector>
 #include <cmath>
 #include <list>
-#include "yaucl/graphs/FlexibleFA.h"
-#include "yaucl/graphs/algorithms/minimizeDFA.h"
+#include <yaucl/graphs/FlexibleFA.h>
+#include <yaucl/graphs/algorithms/minimizeDFA.h>
 
 
 
@@ -107,6 +107,9 @@ struct ltlf {
     static ltlf release_(const ltlf& left, const ltlf& right);
     static ltlf and_(const ltlf& left, const ltlf& right);
     static ltlf platomic(const ltlf& argument);
+    static ltlf wuntil_(const ltlf& left, const ltlf& right) {
+        return ltlf::or_(ltlf::until_(left, right), ltlf::globally_(left));
+    }
 
     bool truth(const std::unordered_set<atom_t> &map) const;
     bool truth(const std::unordered_map<atom_t,bool>& map) const;
@@ -137,6 +140,7 @@ struct ltlf {
     bool operator==(const ltlf &rhs) const;
     bool operator!=(const ltlf &rhs) const;
     friend std::ostream& operator<<(std::ostream& os, const ltlf &ltlf);
+    std::ostream& to_aaltaf(std::ostream& os) const;
 
 private:
     ltlf _delta(const std::unordered_map<atom_t,bool>& map, bool epsilon = false) const;
@@ -160,7 +164,8 @@ static inline ltlf
 unpack_binary_operator(const std::unordered_set<ltlf> &transformed_delta_formulas,
                        const ltlf &default_val,
                        bool isAnd,
-                       bool doMultiCollect = false) {
+                       bool doMultiCollect = false,
+                       bool simplify = true) {
     ltlf counjunctions = default_val;
     if (!transformed_delta_formulas.empty()) {
         if (transformed_delta_formulas.size() == 1) {
@@ -182,7 +187,8 @@ unpack_binary_operator(const std::unordered_set<ltlf> &transformed_delta_formula
     // Provides some basic formula simplification for reducing its size. The main target is to get
     // rid of some predicates that do not substantially contribute to the model, as they are nihilated
     // by true/false predicates
-    counjunctions = counjunctions.simplify();
+    if (simplify)
+        counjunctions = counjunctions.simplify();
     return counjunctions;
 }
 

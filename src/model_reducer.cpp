@@ -3,8 +3,8 @@
 //
 
 #define DEBUG
-#include "model_reducer.h"
-#include "yaucl/graphs/FlexibleFA.h"
+#include <model_reducer.h>
+#include <yaucl/graphs/FlexibleFA.h>
 
 static inline bool test_future_condition(const std::unordered_map<act_t, char>& Future, const act_t& label, char condition) {
     auto it = Future.find(label);
@@ -64,6 +64,7 @@ bool model_reducer::reduce_map_to_be_considered(map_inout<act_t, act_t>& map_to_
     // Getting all the distinct cycles
     array.reserve(crg.vSize()+1);
     do {
+        array.clear();
         foundLoop = false;
         visited.clear();
         for (size_t i : crg.getNodeIds()) {
@@ -86,6 +87,8 @@ bool model_reducer::reduce_map_to_be_considered(map_inout<act_t, act_t>& map_to_
                     foundLoop = true;
                 }
             }
+            if (foundLoop)
+                break;
         }
     } while ((crg.vSize() > 0) && foundLoop);
     return true;

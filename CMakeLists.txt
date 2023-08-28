@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 project(reducer)
 set(CMAKE_CXX_STANDARD 23)
 
+
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 Include(FetchContent)
 FetchContent_Declare(
@@ -11,11 +12,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
+include_directories(include)
 add_subdirectory(submodules/yaucl)
 include_directories(submodules/yaucl/include)
+include_directories(submodules/args/)
 include_directories(submodules/yaucl/submodules/magic_enum/include)
 
-add_library(reducerlib declare_cases.h declare_cases.cpp ltlf.cpp ltlf.h my_unordered_set.h model_reducer.cpp model_reducer.h declare_to_lydialtlf.cpp declare_to_lydialtlf.h declare_to_powerdecl.cpp declare_to_powerdecl.h)
+add_library(reducerlib include/declare_cases.h src/declare_cases.cpp src/ltlf.cpp include/ltlf.h include/my_unordered_set.h src/model_reducer.cpp include/model_reducer.h src/declare_to_lydialtlf.cpp include/declare_to_lydialtlf.h src/declare_to_powerdecl.cpp include/declare_to_powerdecl.h)
 target_link_libraries(reducerlib yaucl_hashing roaring antlr4_static yaucl_graph )
 
 add_executable(reducer main.cpp)

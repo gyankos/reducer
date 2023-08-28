@@ -2,11 +2,56 @@
 // Created by giacomo on 20/08/23.
 //
 
-#include "ltlf.h"
+#include <ltlf.h>
 
 const ltlf ltlf::ltlf_true{ltlf::TRUE};
 const ltlf ltlf::ltlf_false{ltlf::FALSE};
 const ltlf ltlf::ltlf_end = ltlf::globally_(ltlf_false);
+
+std::ostream& ltlf::to_aaltaf(std::ostream& os) const {
+    switch (t) {
+        case ltlf::TRUE:
+            return os << "1";
+        case ltlf::FALSE:
+            return os << "0";
+        case ltlf::END:
+            return os << "!(X(1))";
+        case ltlf::UNTIL:
+             os << ("(");
+             children.at(0).to_aaltaf(os) << ") U (";
+             return children.at(1).to_aaltaf(os) << ")";
+        case ltlf::GLOBALLY:
+            os << "G(";
+            return children.at(0).to_aaltaf(os) << ")";
+        case ltlf::FUTURE:
+            os << "F(";
+            return children.at(0).to_aaltaf(os) << ")";
+        case ltlf::ATOM:
+            return os << atom;
+        case ltlf::NOT:
+            os << "!" << "(";
+            return children.at(0).to_aaltaf(os) << ")";
+        case ltlf::AND:
+            os << ("(");
+            (children.at(0).to_aaltaf(os)) << ") && (";
+            return children.at(1).to_aaltaf(os) << ")";
+        case ltlf::OR:
+            os << ("(");
+            (children.at(0).to_aaltaf(os)) << ") || (";
+            return children.at(1).to_aaltaf(os) << ")";
+        case ltlf::NEXT:
+            os << "X(";
+            return children.at(0).to_aaltaf(os) << ")";
+        case ltlf::WEAKNEXT:
+            os << "N(";
+            return children.at(0).to_aaltaf(os) << ")";
+        case ltlf::RELEASE:
+            os << ("(");
+            (children.at(0).to_aaltaf(os)) << ") R (";
+            return children.at(1).to_aaltaf(os) << ")";
+    }
+    return os;
+}
 
 std::ostream& operator<<(std::ostream& os, const ltlf &ltlf) {
     switch (ltlf.t) {
@@ -241,7 +286,7 @@ ltlf ltlf::globally_(const ltlf &left) {
 }
 
 ltlf ltlf::implies(const ltlf &left, const ltlf &right) {
-    return or_(not_(left), right);
+    return or_(not_(left), and_(left, right));
 }
 
 ltlf ltlf::or_(const ltlf &left, const ltlf &right) {

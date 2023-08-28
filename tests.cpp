@@ -1,8 +1,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
 #include <fstream>
-#include "declare_cases.h"
-#include "model_reducer.h"
+#include <declare_cases.h>
+#include <model_reducer.h>
 
 TEST_CASE( "file-based testing" ) {
     auto path = std::filesystem::current_path().parent_path() / "tests";

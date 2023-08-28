@@ -2,7 +2,7 @@
 // Created by giacomo on 19/08/23.
 //
 
-#include "declare_cases.h"
+#include <declare_cases.h>
 
 DatalessCases::DatalessCases(declare_cases casus, const size_t &left, const size_t &right) : casus(casus),
                                                                                                        left(left),
