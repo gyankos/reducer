@@ -9,3 +9,4 @@ dataset/*
 out.csv
 oom_file.log.txt
 for_lydia_scan.txt
+for_lydia_scan_brief.txt
