@@ -58,7 +58,7 @@ bool model_reducer::reduce_map_to_be_considered(map_inout<act_t, act_t>& map_to_
         }
     }
     bool foundLoop = false;
-    roaring::Roaring64Map visited;
+    roaring::Roaring64Map visited, inloop;
     std::vector<size_t> array, loop;
     size_t maximal_size = crg.vSize()+1;
     // Getting all the distinct cycles
@@ -74,6 +74,7 @@ bool model_reducer::reduce_map_to_be_considered(map_inout<act_t, act_t>& map_to_
                                       i,
                                       array, loop)) {
                     for (size_t nodeId : loop) {
+                        inloop.add(nodeId);
                         const auto& label = crg.getNodeLabel(nodeId);
                         if (!exclude_from_existance(label)) return false;
                         if (alsoPassedMap)
@@ -91,6 +92,18 @@ bool model_reducer::reduce_map_to_be_considered(map_inout<act_t, act_t>& map_to_
                 break;
         }
     } while ((crg.vSize() > 0) && foundLoop);
+    if (!foundLoop) {
+        DEBUG_ASSERT(( visited-inloop) == visited);
+        for (size_t nodeId : visited) {
+            if ((crg.nOutgoingEdges(nodeId) == 0) && (crg.nIngoingEdges(nodeId)==0)) {
+                const auto& label = crg.getNodeLabel(nodeId);
+                if (!exclude_from_existance(label)) return false;
+                if (alsoPassedMap)
+                    exclude_from_map(map_to_be_considered, label);
+                if (!exclude_from_all_maps(label)) return false;
+            }
+        }
+    }
     return true;
 }
 
@@ -229,14 +242,14 @@ bool model_reducer::reduce_p(const act_t& absentLabel) {
             if (!exclude_from_all_maps(second)) return false;
 
             {
-                auto it = Mprecedence.find_out(absentLabel);
+                auto it = Mprecedence.find_out(second);
                 if (it != Mprecedence.end_out()) {
                     toRemove.insert(it->second.begin(), it->second.end());
                     Mprecedence.erase_out(it);
                 }
             }
             {
-                auto it = Mprecedence.find_in(absentLabel);
+                auto it = Mprecedence.find_in(second);
                 if (it != Mprecedence.end_in()) {
                     auto cp = it->second;
                     for (const auto& x : cp)

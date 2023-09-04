@@ -46,30 +46,30 @@ if __name__ == "__main__":
 					x = x.strip()
 					s = Path(x).stem
 					print(Path(x))
-					#axmodel, t1 = run_lydia(os.path.join(x, "ltlf_ax_model.txt"))
-					#if axmodel>0:
-					#	print("axmodel: OOM! in "+str(t1)+"ms")
-					#	oom_file.write(os.path.join(x, "ltlf_ax_model.txt")+","+s+",axmodel,"+str(t1))
-					#	oom_file.flush()
-					#else:
-					#	the_file.write(s+",axmodel,"+str(t1)+os.linesep)
-					#	the_file.flush()
-					#model,t2 = run_lydia(os.path.join(x, "ltlf_model.txt"))
-					#if model>0:
-					#	print("model: OOM! in "+str(t2)+"ms")
-					#	oom_file.write(os.path.join(x, "ltlf_model.txt")+","+s+",model,"+str(t2))
-					#	oom_file.flush()
-					#else:
-					#	the_file.write(s+",model,"+str(t2)+os.linesep)
-					#	the_file.flush()
-					#rmodel,t3 = run_lydia(os.path.join(x, "ltlf_reduced.txt"))
-					#if rmodel>0:
-					#	print("rmodel: OOM! in "+str(t3)+"ms")
-					#	oom_file.write(os.path.join(x, "ltlf_reduced.txt")+","+s+",rmodel,"+str(t3))
-					#	oom_file.flush()
-					#else:
-					#	the_file.write(s+",rmodel,"+str(t3)+os.linesep)
-					#	the_file.flush()
+					axmodel, t1 = run_lydia(os.path.join(x, "ltlf_ax_model.txt"))
+					if axmodel>0:
+						print("axmodel: OOM! in "+str(t1)+"ms")
+						oom_file.write(os.path.join(x, "ltlf_ax_model.txt")+","+s+",axmodel,"+str(t1))
+						oom_file.flush()
+					else:
+						the_file.write(s+",axmodel,"+str(t1)+os.linesep)
+						the_file.flush()
+					model,t2 = run_lydia(os.path.join(x, "ltlf_model.txt"))
+					if model>0:
+						print("model: OOM! in "+str(t2)+"ms")
+						oom_file.write(os.path.join(x, "ltlf_model.txt")+","+s+",model,"+str(t2))
+						oom_file.flush()
+					else:
+						the_file.write(s+",model,"+str(t2)+os.linesep)
+						the_file.flush()
+					rmodel,t3 = run_lydia(os.path.join(x, "ltlf_reduced.txt"))
+					if rmodel>0:
+						print("rmodel: OOM! in "+str(t3)+"ms")
+						oom_file.write(os.path.join(x, "ltlf_reduced.txt")+","+s+",rmodel,"+str(t3))
+						oom_file.flush()
+					else:
+						the_file.write(s+",rmodel,"+str(t3)+os.linesep)
+						the_file.flush()
 					
 					aaxmodel, at1 = run_aaltaf(os.path.join(x, "aaltaf_ax_model.txt"))
 					if aaxmodel>0:

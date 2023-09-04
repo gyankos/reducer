@@ -22,3 +22,6 @@
 [submodule "submodules/aaltaf"]
 	path = submodules/aaltaf
 	url = https://github.com/jackbergus/aaltaf
+[submodule "submodules/knobab2"]
+	path = submodules/knobab2
+	url = https://github.com/datagram-db/knobab.git
