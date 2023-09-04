@@ -214,6 +214,9 @@ bool model_reducer::reduce_c(const act_t& absentLabel) {
     auto it = Mchoice.find_out(absentLabel);
     if (it != Mchoice.end_out())
         labels = it->second;
+    auto it2 = Mchoice.find_in(absentLabel);
+    if (it != Mchoice.end_in())
+        labels.insert(it2->second.begin(), it2->second.end());
     if (!exclude_from_existance(absentLabel))
         return false;
     if (!exclude_from_all_maps(absentLabel))
