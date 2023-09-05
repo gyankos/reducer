@@ -373,6 +373,7 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
 
             case ChainSuccession:
                 chain_response.emplace_back(clause.left, clause.right);
+                response.emplace_back(clause.left, clause.right);
                 chain_precedence.emplace_back(clause.right, clause.left);
                 break;
 
