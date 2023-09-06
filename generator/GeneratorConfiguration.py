@@ -105,7 +105,7 @@ class GeneratorConfiguration:
         if not os.path.exists(dir):
             os.makedirs(dir)
         filename = os.path.join(dir, file)
-        with open(filename, 'w') as f:
-            for line in L:
-                f.write(f"{line}\n")
+        # with open(filename, 'w') as f:
+        #     for line in L:
+        #         f.write(f"{line}\n")
         return dir, file

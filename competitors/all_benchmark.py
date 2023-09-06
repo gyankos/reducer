@@ -39,9 +39,9 @@ def run_aaltaf(arg):
 	return popen.returncode, difference
 
 if __name__ == "__main__":
-	oom_file = open("oom_file.log.txt", "a", buffering=1)
-	with open('for_lydia_scan_brief.txt', 'r', buffering=1) as r:
-		with open('out.csv', 'a', buffering=1) as the_file:
+	oom_file = open("oom_file2.log.txt", "a", buffering=1)
+	with open('for_lydia_scan2.txt', 'r', buffering=1) as r:
+		with open('out2.csv', 'a', buffering=1) as the_file:
 			for x in r.readlines():
 					x = x.strip()
 					s = Path(x).stem

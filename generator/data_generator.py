@@ -13,7 +13,7 @@ def run(args):
     L = [bin]
     for x in args:
         L.append(x)
-    # print(" ".join(L))
+    print(" ".join(L))
     popen = subprocess.Popen(L, stdout=subprocess.PIPE)
     popen.wait()
     output = popen.stdout.read()
@@ -59,6 +59,8 @@ if __name__ == "__main__":
     cases = ["chain", "complete_graph", "circulant_graph"]
     l = [0,1,2,3]
 
+    # patterns = {"r": 'Response("{a}" "{b}")',
+    #             }
     patterns = {"cr": 'ChainResponse("{a}" "{b}")',
                 "p": 'Precedence("{a}" "{b}")',
                 "r": 'Response("{a}" "{b}")',
@@ -76,10 +78,13 @@ if __name__ == "__main__":
                     L.append(generate_method_and_run(min, count, sigma_file, case, l, pattern, patterns[pattern], exponent))
         L.append(generate_method_and_run(min, count, sigma_file, "path", l, "crar",
                                       'ChainResponse("{a}" "{a}")' + os.linesep + 'AltResponse("{a}" "{a}")', exponent))
+        L.append(generate_method_and_run(min, count, sigma_file, "path", l, "cr2",
+                                         'ChainResponse("a" "{a}")',
+                                         exponent))
         min = min * exponent
     min = exponent
-    with open("for_lydia_scan.txt", "w") as f:
-        for x in L:
-            f.write(x+os.linesep)
+    # with open("for_lydia_scan.txt", "w") as f:
+    #     for x in L:
+    #         f.write(x+os.linesep)
 
 
