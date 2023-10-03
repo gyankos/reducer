@@ -1,0 +1,3 @@
+Absence("c")
+Existence("b")
+Absence("a")

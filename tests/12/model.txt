@@ -1,0 +1,8 @@
+ChainResponse("a" "h")
+Response("c" "a")
+Response("a" "b")
+NegSuccession("a" "b")
+Response("d" "e")
+Absence("e" "")
+Response("f" "g")
+Absence("f" "")

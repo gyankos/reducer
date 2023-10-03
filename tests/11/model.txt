@@ -1,0 +1,2 @@
+ChainSuccession("a" "b")
+Succession("a" "b")

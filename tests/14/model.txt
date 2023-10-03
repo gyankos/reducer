@@ -1,0 +1,2 @@
+AltPrecedence("a" "b")
+Absence("a" "")

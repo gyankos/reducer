@@ -1,0 +1,4 @@
+Choice("a" "b")
+Absence("a")
+NegSuccession("c" "b")
+ChainResponse("c" "d")
