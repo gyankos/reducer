@@ -20,12 +20,18 @@ add_subdirectory(submodules/yaucl)
 include_directories(submodules/yaucl/include)
 include_directories(submodules/args/)
 include_directories(submodules/yaucl/submodules/magic_enum/include)
+include_directories(submodules/yaucl/submodules/CRoaring/)
+include_directories(submodules/yaucl/submodules/CRoaring/cpp)
+include_directories(submodules/yaucl/submodules/CRoaring/include)
 
 add_library(reducerlib include/declare_cases.h src/declare_cases.cpp src/ltlf.cpp include/ltlf.h include/my_unordered_set.h src/model_reducer.cpp include/model_reducer.h src/declare_to_lydialtlf.cpp include/declare_to_lydialtlf.h src/declare_to_powerdecl.cpp include/declare_to_powerdecl.h)
 target_link_libraries(reducerlib yaucl_hashing roaring antlr4_static yaucl_graph )
 
 add_executable(reducer main.cpp)
 target_link_libraries(reducer yaucl_hashing roaring antlr4_static yaucl_graph reducerlib)
+
+add_executable(to_automaton to_automaton.cpp)
+target_link_libraries(to_automaton yaucl_hashing roaring antlr4_static yaucl_graph reducerlib)
 
 
 add_executable(tests tests.cpp)
