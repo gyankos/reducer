@@ -433,7 +433,12 @@ std::vector<DatalessCases> model_reducer::run(const std::vector<DatalessCases>& 
                 break;
 
             case NegSuccession:
-                neg_succession.emplace_back(clause.left, clause.right);
+                if (clause.left != clause.right)
+                    neg_succession.emplace_back(clause.left, clause.right);
+                else {
+                    if (!exclude_from_existance(clause.left))
+                        return result;
+                }
                 break;
 
             case NegChainSuccession:
