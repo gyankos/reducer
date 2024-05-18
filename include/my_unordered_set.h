@@ -2,7 +2,7 @@
  * my_unordered_set.h
  * This file is part of DECLAREd
  *
- * Copyright (C) 2023 - Anonymous Ⅳ
+ * Copyright (C) 2023 - Giacomo Bergami
  *
  * DECLAREd is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
